@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+message: "If you use this software or its results, please cite it as below."
+title: "Submersion & Refloat Planner"
+version: 1.1.1
+date-released: 2026-11-17
+license: MIT
+repository-code: "https://github.com/DeLucaEnterprises/Submersion-Refloat-Planner"
+url: "https://delucaenterprises.github.io/Submersion-Refloat-Planner/"
+authors:
+  - name: "The Find Me Project"
+  - family-names: "DeLuca"
+    given-names: "Mark"
+abstract: "A still-water Monte Carlo model for search and rescue and recovery teams: time for a drowning victim to reach the bottom, likely resting position, and the probability and timing of refloat by depth and water temperature."
+keywords: [search and rescue, drowning, missing persons, sonar, refloat, Monte Carlo]

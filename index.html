@@ -1,0 +1,1150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!-- Submersion & Refloat Planner · The Find Me Project · MIT License (see LICENSE) -->
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Submersion &amp; Refloat Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: field-console. Sticky case bar; left = case inputs, right = verdict strip, charts, resting-zone inference, evidence. Navy/gold (TFMP) on cool slate. */
+:root{
+  --ink:#0f2236; --ink-2:#3e5168; --ink-3:#6b7d92;
+  --bg:#eef2f6; --panel:#ffffff; --panel-2:#f5f8fb; --line:#d6dee8; --line-2:#e6ecf2;
+  --navy:#13304f; --on-navy:#e8eef6; --gold:#c8901c; --gold-ink:#7a5408;
+  --water:#2a6db0; --water-soft:#d7e6f5;
+  --good:#1d7a4f; --warn:#a86a07; --bad:#b3263a;
+  --good-bg:#e3f3ea; --warn-bg:#fbf0d9; --bad-bg:#f9e2e5;
+  --f-display:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --ink:#e3eaf3; --ink-2:#a9b8ca; --ink-3:#7d8ea3;
+  --bg:#0a1320; --panel:#101d2e; --panel-2:#0d1827; --line:#22344b; --line-2:#1a2a3e;
+  --navy:#0c1a2b; --on-navy:#e3eaf3; --gold:#e0a93a; --gold-ink:#f0c46a;
+  --water:#5aa2e6; --water-soft:#163552;
+  --good:#4cc488; --warn:#e7a93e; --bad:#ef6a7c;
+  --good-bg:#0f3123; --warn-bg:#3a2a0b; --bad-bg:#3d1219; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --ink:#e3eaf3; --ink-2:#a9b8ca; --ink-3:#7d8ea3;
+  --bg:#0a1320; --panel:#101d2e; --panel-2:#0d1827; --line:#22344b; --line-2:#1a2a3e;
+  --navy:#0c1a2b; --on-navy:#e3eaf3; --gold:#e0a93a; --gold-ink:#f0c46a;
+  --water:#5aa2e6; --water-soft:#163552;
+  --good:#4cc488; --warn:#e7a93e; --bad:#ef6a7c;
+  --good-bg:#0f3123; --warn-bg:#3a2a0b; --bad-bg:#3d1219; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{background:var(--bg)}
+body{color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45;margin:0}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--navy)}
+.mono,.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance}
+.gut{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+/* top bar */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--navy);color:var(--on-navy);border-bottom:2px solid var(--gold)}
+.bar-in{max-width:1440px;margin:0 auto;padding-block:10px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.brand{display:flex;gap:10px;align-items:center;min-width:0;flex:1 1 300px}
+.brand svg{flex:none}
+.brand h1{font-size:20px;font-weight:800;font-stretch:80%;letter-spacing:.02em;text-transform:uppercase;line-height:1}
+.brand p{margin:2px 0 0;font-size:12px;color:color-mix(in srgb,var(--on-navy) 70%,transparent)}
+.bar-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.bar select,.bar button{font:600 12px var(--f-body);border-radius:6px;padding:8px 10px;border:1px solid color-mix(in srgb,var(--on-navy) 25%,transparent);background:color-mix(in srgb,var(--on-navy) 8%,transparent);color:var(--on-navy)}
+.bar select option{color:#0f2236;background:#fff}
+.bar button.primary{background:var(--gold);border-color:var(--gold);color:#1b1404}
+.bar button:hover,.bar select:hover{border-color:var(--gold)}
+button,select,input{font-family:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+/* layout */
+.app{max-width:1440px;margin:0 auto;padding-block:16px 40px;display:grid;grid-template-columns:minmax(300px,360px) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:980px){.app{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;min-width:0}
+.ph{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;padding:12px 14px 8px;border-bottom:1px solid var(--line-2)}
+.ph h2{font-size:15px;font-weight:700;font-stretch:88%;letter-spacing:.03em;text-transform:uppercase}
+.ph .sub{font-size:12px;color:var(--ink-3)}
+.pb{padding:12px 14px 14px}
+/* inputs */
+.inputs{position:sticky;top:calc(env(safe-area-inset-top,0px) + 70px);max-height:calc(100vh - 90px);overflow:auto}
+@media (max-width:980px){.inputs{position:static;max-height:none}}
+fieldset{border:0;margin:0;padding:12px 14px;border-bottom:1px solid var(--line-2);display:grid;gap:10px}
+legend{font:700 11px var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--gold-ink);padding:0;margin-bottom:2px;float:left;width:100%}
+.f{display:grid;gap:4px;min-width:0}
+.f label{font-size:12px;font-weight:600;color:var(--ink-2);display:flex;justify-content:space-between;gap:6px}
+.f label .u{font-family:var(--f-mono);font-weight:500;color:var(--ink-3)}
+.f input[type=number],.f input[type=text],.f input[type=datetime-local],.f input[type=date],.f select{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--panel-2);color:var(--ink);font-size:13px;min-width:0}
+.f input[type=number]{font-family:var(--f-mono)}
+.f .hint{font-size:11px;color:var(--ink-3);line-height:1.35}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg label{display:block;text-align:center;padding:7px 4px;font-size:12px;font-weight:600;color:var(--ink-2);cursor:pointer;border-right:1px solid var(--line);justify-content:center;background:var(--panel-2)}
+.seg label:last-of-type{border-right:0}
+.seg input:checked+label{background:var(--navy);color:var(--on-navy)}
+.seg input:focus-visible+label{outline:2px solid var(--gold);outline-offset:-2px}
+.seg.two{grid-template-columns:repeat(2,1fr)}
+.example-note{margin:0;padding:10px 14px;font-size:12px;background:var(--warn-bg);color:var(--ink);border-bottom:1px solid var(--line-2)}
+.example-note[hidden]{display:none}
+/* results */
+.results{display:grid;gap:16px;min-width:0}
+.verdict{display:grid;grid-template-columns:auto 1fr;gap:0;overflow:hidden}
+.verdict .stripe{width:8px;background:var(--ink-3)}
+.verdict[data-state="likely"] .stripe{background:var(--good)}
+.verdict[data-state="uncertain"] .stripe{background:var(--warn)}
+.verdict[data-state="unlikely"] .stripe{background:var(--bad)}
+.vbody{padding:14px 16px;display:grid;gap:10px;min-width:0}
+.vtop{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.chip{font:700 11px var(--f-body);letter-spacing:.1em;text-transform:uppercase;padding:4px 9px;border-radius:999px;border:1px solid currentColor}
+.chip.likely{color:var(--good);background:var(--good-bg)}
+.chip.uncertain{color:var(--warn);background:var(--warn-bg)}
+.chip.unlikely{color:var(--bad);background:var(--bad-bg)}
+.vhead{font-family:var(--f-display);font-size:clamp(18px,2.4vw,24px);font-weight:700;font-stretch:90%;line-height:1.15}
+.vsub{color:var(--ink-2);max-width:80ch}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));border-top:1px solid var(--line-2)}
+.kpi{padding:12px 16px;border-right:1px solid var(--line-2);border-bottom:1px solid var(--line-2);min-width:0}
+.kpi .k{font:700 10.5px var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+.kpi .v{font:600 22px var(--f-mono);font-variant-numeric:tabular-nums;margin-top:2px;white-space:nowrap}
+.kpi .v small{font-size:13px;font-weight:500;color:var(--ink-2)}
+.kpi .s{font-size:11.5px;color:var(--ink-3)}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+@media (max-width:1180px){.grid2{grid-template-columns:minmax(0,1fr)}}
+svg.chart{display:block;width:100%;height:auto}
+svg.chart text{font-family:var(--f-mono);font-size:11px;fill:var(--ink-3)}
+svg.chart .t-strong{fill:var(--ink);font-weight:600}
+svg.chart .t-water{fill:var(--water);font-weight:600}
+svg.chart .t-gold{fill:var(--gold-ink);font-weight:600}
+.chart-note{font-size:12px;color:var(--ink-3);margin:6px 0 0}
+.guide{display:grid;gap:10px;margin:0;padding:0;list-style:none}
+.guide li{display:grid;grid-template-columns:110px 1fr;gap:10px;padding:10px 0;border-top:1px solid var(--line-2)}
+.guide li:first-child{border-top:0;padding-top:0}
+.guide .gk{font:700 11px var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:var(--gold-ink)}
+@media (max-width:520px){.guide li{grid-template-columns:1fr;gap:2px}}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line-2);vertical-align:middle}
+th{font:700 10.5px var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);white-space:nowrap}
+td.num,th.num{text-align:right}
+.zones input{width:100%;min-width:56px;padding:5px 6px;border:1px solid var(--line);border-radius:5px;background:var(--panel-2);color:var(--ink);font-family:var(--f-mono);font-size:12px}
+.zones input.lbl{font-family:var(--f-body);min-width:120px}
+.bar-cell{display:flex;align-items:center;gap:8px;min-width:140px}
+.bar-track{flex:1;height:10px;background:var(--line-2);border-radius:3px;overflow:hidden}
+.bar-fill{height:100%;background:var(--water)}
+.icon-btn{border:1px solid var(--line);background:var(--panel-2);color:var(--ink-2);border-radius:5px;padding:4px 8px;font-size:12px}
+.icon-btn:hover{border-color:var(--gold)}
+.btn{border:1px solid var(--line);background:var(--panel-2);color:var(--ink);border-radius:6px;padding:7px 10px;font-size:12px;font-weight:600}
+.btn:hover{border-color:var(--gold)}
+.heat{display:grid;gap:2px;font-family:var(--f-mono);font-size:11px}
+.heat .hc{padding:6px 2px;text-align:center;border-radius:3px;font-variant-numeric:tabular-nums}
+.heat .hh{color:var(--ink-3);text-align:center;padding:4px 0}
+.heat .hr{color:var(--ink-3);text-align:right;padding:6px 6px 6px 0;white-space:nowrap}
+.heat .hc.cur{outline:2px solid var(--gold);outline-offset:-2px;font-weight:700}
+details.ev{border-top:1px solid var(--line-2)}
+details.ev summary{cursor:pointer;padding:12px 14px;font-weight:700;font-size:13px}
+details.ev .pb{padding-top:0}
+.prose{max-width:78ch;color:var(--ink-2)}
+.prose p{margin:0 0 8px}
+a{color:var(--water)}
+.status-line{font-size:12px;color:var(--ink-3);display:flex;gap:12px;flex-wrap:wrap}
+.toast{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--navy);color:var(--on-navy);padding:10px 14px;border-radius:8px;border:1px solid var(--gold);font-size:13px;z-index:20}
+.disclaimer{font-size:12px;color:var(--ink-2);background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+/* menus, drawer, modal */
+.menu{position:relative}
+.menu>summary{list-style:none;cursor:pointer;font:600 12px var(--f-body);border-radius:6px;padding:8px 10px;border:1px solid color-mix(in srgb,var(--on-navy) 25%,transparent);background:color-mix(in srgb,var(--on-navy) 8%,transparent);color:var(--on-navy)}
+.menu>summary::-webkit-details-marker{display:none}
+.menu>summary::after{content:" ▾";opacity:.7}
+.menu[open]>summary{border-color:var(--gold)}
+.menu-list{position:absolute;right:0;top:calc(100% + 6px);min-width:260px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 30px rgba(5,15,30,.25);padding:6px;display:grid;z-index:8}
+.menu-list button{all:unset;cursor:pointer;padding:8px 10px;border-radius:5px;font-size:13px;color:var(--ink)}
+.menu-list button:hover,.menu-list button:focus-visible{background:var(--panel-2);outline:none;box-shadow:inset 3px 0 0 var(--gold)}
+.menu-h{font:700 10px var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);padding:8px 10px 4px}
+@media (max-width:560px){.menu-list{position:fixed;left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));top:auto;min-width:0}}
+.f textarea,.modal textarea{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--panel-2);color:var(--ink);font:12.5px/1.4 var(--f-body);resize:vertical}
+.modal textarea{font-family:var(--f-mono);font-size:11.5px}
+.banner{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel)}
+.banner[data-kind="ok"]{border-color:var(--good);background:var(--good-bg)}
+.banner[data-kind="warn"]{border-color:var(--warn);background:var(--warn-bg)}
+.banner[data-kind="bad"]{border-color:var(--bad);background:var(--bad-bg)}
+.banner b{font-weight:700}
+.scrim{position:fixed;inset:0;background:rgba(4,10,20,.45);z-index:30}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(560px,100%);background:var(--panel);color:var(--ink);z-index:31;display:flex;flex-direction:column;border-left:2px solid var(--gold);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);padding-right:env(safe-area-inset-right,0px)}
+.drawer-h{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;background:var(--navy);color:var(--on-navy)}
+.drawer-h h2{font-size:17px;font-weight:800;font-stretch:85%;letter-spacing:.04em;text-transform:uppercase}
+.drawer-h .icon-btn{background:transparent;color:var(--on-navy);border-color:color-mix(in srgb,var(--on-navy) 30%,transparent);font-size:16px}
+.tabs{display:flex;border-bottom:1px solid var(--line);overflow-x:auto}
+.tabs button{all:unset;cursor:pointer;padding:11px 14px;font-size:13px;font-weight:600;color:var(--ink-2);border-bottom:3px solid transparent;white-space:nowrap}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--gold)}
+.tabs button:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
+.drawer-b{flex:1;overflow:auto;padding:16px}
+.drawer-b section{display:grid;gap:14px;align-content:start}
+.danger{border:1px solid var(--line);border-radius:8px;padding:12px;display:grid;gap:10px}
+.danger-actions{display:flex;gap:8px;flex-wrap:wrap}
+.confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;padding:8px;border-radius:6px;background:var(--bad-bg)}
+.btn.warn{border-color:var(--bad);color:var(--bad)}
+.btn.primary{background:var(--gold);border-color:var(--gold);color:#1b1404}
+.versions{list-style:none;margin:0;padding:0;display:grid;gap:14px}
+.versions li{border-left:3px solid var(--line);padding:2px 0 2px 12px}
+.versions li.current{border-left-color:var(--gold)}
+.versions .vh{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.versions .vn{font:700 15px var(--f-mono)}
+.versions .vd{font-size:12px;color:var(--ink-3)}
+.versions .vt{font:700 10px var(--f-body);letter-spacing:.1em;text-transform:uppercase;padding:2px 6px;border-radius:4px;background:var(--panel-2);border:1px solid var(--line);color:var(--ink-2)}
+.versions ul{margin:6px 0 0;padding-left:18px;color:var(--ink-2);font-size:13px}
+.versions ul li{border:0;padding:0;margin:3px 0}
+table.audit td{font-size:12px;vertical-align:top}
+table.audit td:first-child{white-space:nowrap;font-family:var(--f-mono);font-size:11px;color:var(--ink-3)}
+.about{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;margin:0;font-size:13px}
+.about dt{color:var(--ink-3);font-weight:600}
+.about dd{margin:0;font-family:var(--f-mono);font-size:12.5px;overflow-wrap:anywhere}
+.modal{position:fixed;z-index:32;left:50%;top:50%;transform:translate(-50%,-50%);width:min(620px,calc(100% - 32px));background:var(--panel);color:var(--ink);border:1px solid var(--line);border-top:3px solid var(--gold);border-radius:10px;padding:16px;display:grid;gap:8px}
+.modal h2{font-size:16px;font-weight:800;font-stretch:88%;text-transform:uppercase;letter-spacing:.03em}
+.dropzone{position:fixed;inset:12px;z-index:40;border:3px dashed var(--gold);border-radius:14px;background:color-mix(in srgb,var(--navy) 80%,transparent);color:var(--on-navy);display:grid;place-items:center;font:700 20px var(--f-body)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="bar-in gut">
+    <div class="brand">
+      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect x="1" y="1" width="32" height="32" rx="6" fill="none" stroke="var(--gold)" stroke-width="2"/><path d="M6 11 Q11 8 17 11 T28 11" fill="none" stroke="var(--on-navy)" stroke-width="2"/><path d="M17 13 V26" stroke="var(--gold)" stroke-width="2" stroke-dasharray="2 2"/><circle cx="17" cy="27" r="2.5" fill="var(--gold)"/></svg>
+      <div><h1>Submersion &amp; Refloat Planner</h1><p>Still-water drowning model: time to the bottom, resting position, and whether and when a body resurfaces</p></div>
+    </div>
+    <div class="bar-actions">
+      <label for="preset" class="mono" style="font-size:11px;opacity:.8">Load</label>
+      <select id="preset" aria-label="Load example case">
+        <option value="">Example cases…</option>
+        <option value="grant">Deep quarry, 180 ft, cold</option>
+        <option value="summer">Warm lake, 25 ft, July</option>
+        <option value="reservoir">Cold reservoir, 120 ft, March</option>
+        <option value="harbor">Saltwater harbor, 35 ft</option>
+      </select>
+      <details class="menu" id="caseMenu">
+        <summary>Case file</summary>
+        <div class="menu-list" role="menu">
+          <div class="menu-h">Bring a case in</div>
+          <button type="button" role="menuitem" id="mImport">Open case file or report…</button>
+          <button type="button" role="menuitem" id="mPaste">Paste case file text…</button>
+          <div class="menu-h">Send a case out</div>
+          <button type="button" role="menuitem" id="mExportCase">Save case file (.json)</button>
+          <button type="button" role="menuitem" id="mExportReport">Save field report (.html)</button>
+          <button type="button" role="menuitem" id="mCopyCase">Copy case file as text</button>
+          <button type="button" role="menuitem" id="copy">Copy summary for incident log</button>
+        </div>
+      </details>
+      <input type="file" id="importFile" accept=".json,.html,.htm,application/json,text/html" hidden>
+      <button id="settingsBtn" type="button" aria-haspopup="dialog">Settings</button>
+      <button id="runBtn" class="primary" type="button">Run model</button>
+    </div>
+  </div>
+</header>
+
+<main class="app gut">
+  <form class="panel inputs" id="form" autocomplete="off">
+    <p class="example-note" id="exampleNote" hidden></p>
+    <fieldset>
+      <legend>Case</legend>
+      <div class="f"><label for="caseName">Case / subject reference</label><input type="text" id="caseName" placeholder="e.g. MP-2024-0613"></div>
+      <div class="f"><label for="incident">Last seen / water entry <span class="u">local time</span></label><input type="datetime-local" id="incident"></div>
+      <div class="f"><label for="observed">No body seen on surface through</label><input type="date" id="observed"><div class="hint">Used to update the odds: a body that has not surfaced by this date is less likely to be in shallow, warm water.</div></div>
+      <div class="f"><label for="caseNotes">Notes <span class="u">saved with the case file</span></label><textarea id="caseNotes" rows="3" placeholder="Sources for temperatures and depths, entry-point reasoning, team decisions"></textarea></div>
+    </fieldset>
+    <fieldset>
+      <legend>Subject</legend>
+      <div class="row2">
+        <div class="f"><label for="weightLb">Weight <span class="u">lb</span></label><input type="number" id="weightLb" min="40" max="450" step="1"></div>
+        <div class="f"><label for="heightIn">Height <span class="u">in</span></label><input type="number" id="heightIn" min="36" max="90" step="1"></div>
+      </div>
+      <div class="f"><label for="build">Build</label>
+        <select id="build"><option value="12">Lean / athletic (~12% fat)</option><option value="20">Average male (~20% fat)</option><option value="28">Average female / heavier male (~28% fat)</option><option value="36">High body fat (~36%)</option><option value="custom">Custom</option></select></div>
+      <div class="f"><label for="bodyFat">Body fat <span class="u">%</span></label><input type="number" id="bodyFat" min="4" max="55" step="1"><div class="hint">More fat floats; more muscle sinks. This is the single strongest driver of whether a body rises.</div></div>
+    </fieldset>
+    <fieldset>
+      <legend>Clothing</legend>
+      <div class="seg" role="radiogroup" aria-label="Clothing">
+        <input type="radio" name="clothing" id="cl-swim" value="swim"><label for="cl-swim">Swimwear</label>
+        <input type="radio" name="clothing" id="cl-normal" value="normal"><label for="cl-normal">Street</label>
+        <input type="radio" name="clothing" id="cl-heavy" value="heavy"><label for="cl-heavy">Heavy / winter</label>
+      </div>
+      <div class="hint" style="font-size:11px;color:var(--ink-3)">Heavy clothing traps more air at first (slower start), then adds weight once soaked. No life jacket: this model assumes the person went under.</div>
+    </fieldset>
+    <fieldset>
+      <legend>How it happened</legend>
+      <div class="seg" role="radiogroup" aria-label="Scenario">
+        <input type="radio" name="scenario" id="sc-A" value="A"><label for="sc-A">Unconscious</label>
+        <input type="radio" name="scenario" id="sc-B" value="B"><label for="sc-B">Can't swim</label>
+        <input type="radio" name="scenario" id="sc-C" value="C"><label for="sc-C">Swam, exhausted</label>
+      </div>
+      <div class="f" id="swimRow"><label for="swimAbility">Swimming ability</label><select id="swimAbility"><option value="weak">Weak</option><option value="avg">Average</option><option value="strong">Strong</option></select></div>
+    </fieldset>
+    <fieldset>
+      <legend>Water</legend>
+      <div class="seg two" role="radiogroup" aria-label="Water type">
+        <input type="radio" name="water" id="w-fresh" value="fresh"><label for="w-fresh">Fresh</label>
+        <input type="radio" name="water" id="w-salt" value="salt"><label for="w-salt">Salt</label>
+      </div>
+      <div class="row2">
+        <div class="f"><label for="restDepthFt">Resting depth <span class="u">ft</span></label><input type="number" id="restDepthFt" min="3" max="600" step="1"></div>
+        <div class="f"><label for="maxDepthFt">Max depth <span class="u">ft</span></label><input type="number" id="maxDepthFt" min="3" max="1000" step="1"></div>
+      </div>
+      <div class="row2">
+        <div class="f"><label for="surfaceTempF">Surface temp <span class="u">°F</span></label><input type="number" id="surfaceTempF" min="32" max="95" step="1"></div>
+        <div class="f"><label for="restTempF">Temp at depth <span class="u">°F</span></label><input type="number" id="restTempF" min="32" max="95" step="1"></div>
+      </div>
+      <div class="hint" style="font-size:11px;color:var(--ink-3)">Measure temperature at the resting depth if you can: a probe on a line, or the ROV's sensor. Below the summer thermocline, deep lakes and quarries usually sit at 39–55 °F all year.</div>
+      <div class="f"><label for="areaAcres">Water body area <span class="u">acres</span></label><input type="number" id="areaAcres" min="0" max="100000" step="1"><div class="hint">Used only to limit how far a swimmer can travel along the shore. Enter 0 for open water.</div></div>
+    </fieldset>
+    <fieldset>
+      <legend>Model</legend>
+      <div class="row2">
+        <div class="f"><label for="runs">Simulations</label><select id="runs"><option value="1000">1,000</option><option value="3000">3,000</option><option value="8000">8,000</option></select></div>
+        <div class="f"><label for="seed">Random seed</label><input type="number" id="seed" min="1" max="999999" step="1"></div>
+      </div>
+      <div class="hint" style="font-size:11px;color:var(--ink-3)">The same inputs and seed always give the same result, so runs can be checked and repeated.</div>
+    </fieldset>
+  </form>
+
+  <section class="results" aria-live="polite">
+    <div class="banner" id="banner" hidden><div id="bannerText"></div><button type="button" class="icon-btn" id="bannerClose" aria-label="Dismiss">&times;</button></div>
+    <article class="panel verdict" id="verdict" data-state="unlikely">
+      <div class="stripe"></div>
+      <div>
+        <div class="vbody">
+          <div class="vtop"><span class="chip unlikely" id="vChip">—</span><span class="status-line" id="vMeta"></span></div>
+          <div class="vhead" id="vHead">Running model…</div>
+          <div class="vsub" id="vSub"></div>
+        </div>
+        <div class="kpis">
+          <div class="kpi"><div class="k">Time to bottom</div><div class="v" id="k-bottom">—</div><div class="s" id="k-bottom-s"></div></div>
+          <div class="kpi"><div class="k">Refloat within 1 year</div><div class="v" id="k-p365">—</div><div class="s" id="k-p365-s"></div></div>
+          <div class="kpi"><div class="k">Surface-watch window</div><div class="v" id="k-window">—</div><div class="s" id="k-window-s"></div></div>
+          <div class="kpi"><div class="k">Still to surface</div><div class="v" id="k-cond">—</div><div class="s" id="k-cond-s"></div></div>
+          <div class="kpi"><div class="k">Bottom search radius</div><div class="v" id="k-radius">—</div><div class="s" id="k-radius-s"></div></div>
+        </div>
+      </div>
+    </article>
+
+    <div class="grid2">
+      <section class="panel"><div class="ph"><h2>Descent profile</h2><span class="sub">depth over the first minutes</span></div><div class="pb"><div id="chDescent"></div><p class="chart-note" id="nDescent"></p></div></section>
+      <section class="panel"><div class="ph"><h2>Refloat probability</h2><span class="sub">cumulative, by days after entry</span></div><div class="pb"><div id="chRefloat"></div><p class="chart-note" id="nRefloat"></p></div></section>
+    </div>
+
+    <div class="grid2">
+      <section class="panel"><div class="ph"><h2>Gas build-up vs. lift needed</h2><span class="sub">why deep, cold bodies stay down</span></div><div class="pb"><div id="chGas"></div><p class="chart-note" id="nGas"></p></div></section>
+      <section class="panel"><div class="ph"><h2>Search guidance</h2><span class="sub">from this run</span></div><div class="pb"><ul class="guide" id="guide"></ul></div></section>
+    </div>
+
+    <section class="panel">
+      <div class="ph"><h2>Where is the body most likely resting?</h2><span class="sub">uses days with no surfacing to update the odds for each zone</span></div>
+      <div class="pb">
+        <p class="prose" style="margin:0 0 10px">List the depth zones a body could have reached from the likely entry points. Set each zone's starting weight from how much of the reachable bottom it covers. A zone where bodies refloat fast loses weight with every day nothing surfaces.</p>
+        <div class="scroll"><table class="zones" id="zones">
+          <thead><tr><th>Zone</th><th class="num">Depth ft</th><th class="num">Temp °F</th><th class="num">Start weight</th><th class="num">Would have surfaced by now</th><th class="num">Refloat in 1 yr</th><th>Likelihood body is here now</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center"><button type="button" class="btn" id="addZone">Add zone</button><span class="status-line" id="zoneSummary"></span></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="ph"><h2>Refloat within 1 year, by depth and temperature</h2><span class="sub">this subject and clothing; gold box = current inputs</span></div>
+      <div class="pb"><div class="scroll"><div class="heat" id="heat"></div></div><p class="chart-note">Read across a row to see how cold suppresses refloat at a given depth. Read down a column to see how depth suppresses it at a given temperature.</p></div>
+    </section>
+
+    <section class="panel">
+      <div class="ph"><h2>Evidence and method</h2><span class="sub">what the model is built on</span></div>
+      <details class="ev" open><summary>Published data the model uses or is checked against</summary><div class="pb"><div class="scroll"><table>
+        <thead><tr><th>Quantity</th><th>Published finding</th><th>How the model uses it</th></tr></thead>
+        <tbody>
+          <tr><td>Body buoyancy</td><td>7% of 98 men floated in fresh water at post-mortem lung volume (<a href="https://www.iflscience.com/do-dead-bodies-sink-or-float-75419" target="_blank" rel="noopener">Donoghue &amp; Minnigerode 1977</a>)</td><td>Calibration: net weight in water drawn so 7% of average men float before aspiration</td></tr>
+          <tr><td>Final struggle</td><td>Instinctive drowning response lasts 20–60 s; the person cannot call or wave (<a href="https://en.wikipedia.org/wiki/Instinctive_drowning_response" target="_blank" rel="noopener">Pia 1974</a>)</td><td>Calibration: surface phase for non-swimmers and exhausted swimmers</td></tr>
+          <tr><td>Drowning timeline</td><td>Submersion to cardiac arrest takes seconds to a few minutes (<a href="https://www.szpilman.com/new_szpilman/szpilman/ARTIGOS/drowning_BMJ_2017.pdf" target="_blank" rel="noopener">Szpilman et al.</a>)</td><td>Check: modeled non-swimmer surface phase median 2.4 min</td></tr>
+          <tr><td>Swim failure</td><td>10 of 10 competent swimmers in swimwear completed 90 min at 25 °C; 4 of 10 stopped at 22–50 min at 10 °C (<a href="https://pdfs.semanticscholar.org/14d9/f6802cc1d9163c682a7fd6c331d3c2c56bd5.pdf" target="_blank" rel="noopener">Tipton et al. 1999, in Brooks 2001</a>); 1-10-1 cold-water principle (<a href="https://csbc.ca/1-10-1-principle/" target="_blank" rel="noopener">CSBC</a>)</td><td>Bound only: clothed swimmers at night are assumed to fail much sooner (median 20 min in warm water, less in cold)</td></tr>
+          <tr><td>Depth limit</td><td>Bodies deeper than about 61 m (200 ft) generally do not bloat (<a href="https://www.researchgate.net/publication/325345584_The_correlation_between_the_Aquatic_Decomposition_Score_ADS_and_the_post-mortem_submersion_interval_measured_in_Accumulated_Degree_Days_ADD_in_bodies_recovered_from_fresh_water" target="_blank" rel="noopener">Reijnen et al. 2018</a>); refloat limit near 100 m for marine vertebrates (Reisdorf et al. 2012, in <a href="https://www.frontiersin.org/articles/10.3389/fmars.2020.00333/full" target="_blank" rel="noopener">Moore et al. 2020</a>)</td><td>Check: at 200 ft, 66–100% of modeled bodies stay down, depending on temperature</td></tr>
+          <tr><td>Cold water</td><td>Bodies in very cold lakes (around 4 °C / 39 °F) tend not to resurface (<a href="https://99wfmk.com/myth-vs-reality-lake-superior-bodies/" target="_blank" rel="noopener">Lake Superior</a>)</td><td>Check: no refloat at 39 °F or colder; about 30% at 41 °F even in shallow water</td></tr>
+          <tr><td>Long-term preservation</td><td>Adipocere (grave wax) forms most readily near 45 °F in cold, wet, low-oxygen conditions (<a href="https://ojp.gov/ncjrs/virtual-library/abstracts/waxing-grave-about-adipocere-soft-tissue-change-aquatic-context" target="_blank" rel="noopener">O'Brien &amp; Kuehner 2007</a>); a body preserved this way surfaced in Lake Crescent about 2.5 years later (<a href="https://historylink.org/File/8599" target="_blank" rel="noopener">HistoryLink</a>)</td><td>Not modeled: late refloat by other causes is possible</td></tr>
+          <tr><td>Warm-water refloat</td><td>Model target: a median of 2–3 days in warm, shallow water</td><td>Calibration target for the gas parameters</td></tr>
+        </tbody></table></div></div></details>
+      <details class="ev"><summary>How the simulation works</summary><div class="pb prose">
+        <p><b>Body.</b> Each simulated body gets a net weight in water from the buoyancy data above. That weight is then adjusted for body weight, body fat (fat 0.90 kg/L, lean tissue 1.10 kg/L, baseline 20%), salt water, and the water that replaces lung air on drowning (0.5–1.5 kg). Clothing adds wet weight and air that compresses with depth (Boyle's law).</p>
+        <p><b>Descent.</b> The body sinks at terminal velocity, recalculated every 0.5 ft as trapped air compresses (tumbling drag area 0.30–0.60 m²). Before sinking, the surface phase depends on the scenario: about 45 s to aspirate when unconscious; distress plus the 20–60 s instinctive response when unable to swim; time to swim failure, then that response, for an exhausted swimmer.</p>
+        <p><b>Resting position.</b> Surface drift plus a 3–20° glide cone on the way down. A swimmer moves along the shore at 0.25–0.6 m/s with frequent reversals, limited by the shoreline length.</p>
+        <p><b>Refloat.</b> Putrefactive gas is produced in a pulse whose speed scales with temperature (Q10 2.5–4, tapering to zero between 46 °F and 39 °F). Gas leaks away at 5–20% per day, faster under pressure. The body rises when retained gas exceeds its negative buoyancy multiplied by the absolute pressure at depth. All parameter ranges are sampled per body. The tool reports percentages of simulated bodies.</p>
+        <p><b>Updating the odds by zone.</b> Each zone's starting weight is multiplied by the chance a body there would still be down after the observed number of days, then normalized. This is standard Bayesian search updating, using the model's refloat curve as the evidence.</p>
+      </div></details>
+      <details class="ev"><summary>Limits: when not to rely on this</summary><div class="pb prose">
+        <p>Still water only. Currents, river flow, tides, waves and wind drift are not modeled, so do not use this for moving water.</p>
+        <p>Water temperature is held constant at the resting depth. In shallow water, seasonal warming or cooling will shift the result. Rerun with the temperature expected over the coming weeks.</p>
+        <p>Not modeled: entanglement on debris, injuries that vent gas, scavenging, intoxication, medications, and a life jacket. Each of these changes the outcome; most make refloat less likely.</p>
+        <p>The swim-failure time for a clothed person at night and the gas capacity of a body are assumptions calibrated to published benchmarks, not direct measurements. Treat outputs as planning ranges. This tool supports a search plan; it does not replace it.</p>
+      </div></details>
+    </section>
+
+    <p class="disclaimer">Decision-support model for search planning. Outputs are percentages of simulated bodies, not predictions for any individual. Built from published data on buoyancy, drowning, swim failure and aquatic decomposition (see Evidence). Research basis: The Find Me Project modeling study, October 2026.</p>
+  </section>
+</main>
+<div class="toast" id="toast" hidden></div>
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="settings" role="dialog" aria-modal="true" aria-labelledby="setTitle" hidden>
+  <div class="drawer-h"><h2 id="setTitle">Settings</h2><button type="button" class="icon-btn" id="setClose" aria-label="Close settings">&times;</button></div>
+  <div class="tabs" role="tablist">
+    <button type="button" role="tab" data-tab="general" aria-selected="true">General</button>
+    <button type="button" role="tab" data-tab="news" aria-selected="false">What's new</button>
+    <button type="button" role="tab" data-tab="audit" aria-selected="false">Audit log</button>
+    <button type="button" role="tab" data-tab="about" aria-selected="false">About</button>
+  </div>
+  <div class="drawer-b">
+    <section data-pane="general">
+      <div class="f"><label for="sAnalyst">Prepared by <span class="u">name / unit</span></label><input type="text" id="sAnalyst" placeholder="e.g. M. DeLuca, Operation Rising Tide"><div class="hint">Stamped on exported case files, field reports and audit entries.</div></div>
+      <div class="f"><label for="sTheme">Appearance</label><select id="sTheme"><option value="auto">Follow device</option><option value="light">Light (bright daylight)</option><option value="dark">Dark (night operations)</option></select></div>
+      <div class="f"><label for="sRuns">Default simulations for new cases</label><select id="sRuns"><option value="1000">1,000 (fastest)</option><option value="3000">3,000</option><option value="8000">8,000 (smoothest)</option></select></div>
+      <div class="f"><label for="sLogRuns">Audit logging</label><select id="sLogRuns"><option value="key">Key actions (imports, exports, presets, manual runs)</option><option value="all">Every model run</option></select></div>
+      <div class="danger">
+        <div><b>Saved data on this device</b><div class="hint">The planner keeps your last case and the audit log in this browser only.</div></div>
+        <div class="danger-actions"><button type="button" class="btn" id="sClearCase">Clear saved case</button><button type="button" class="btn" id="sClearLog">Clear audit log</button></div>
+        <div class="confirm" id="confirmBox" hidden><span id="confirmText"></span><button type="button" class="btn warn" id="confirmYes">Yes, clear it</button><button type="button" class="btn" id="confirmNo">Cancel</button></div>
+      </div>
+    </section>
+    <section data-pane="news" hidden><ol class="versions" id="versions"></ol></section>
+    <section data-pane="audit" hidden>
+      <p class="hint" style="margin:0 0 8px">A record of what was done with the planner in this browser, newest first. Each run records the seed, model version and engine fingerprint, so any figure can be traced and repeated.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"><button type="button" class="btn" id="aSave">Save log (.csv)</button><button type="button" class="btn" id="aCopy">Copy log</button><span class="status-line" id="aCount"></span></div>
+      <div class="scroll"><table class="audit"><thead><tr><th>When</th><th>Action</th><th>Case</th><th>Details</th></tr></thead><tbody id="auditBody"></tbody></table></div>
+    </section>
+    <section data-pane="about" hidden><dl class="about" id="about"></dl></section>
+  </div>
+</aside>
+<div class="modal" id="pasteModal" role="dialog" aria-modal="true" aria-labelledby="pasteTitle" hidden>
+  <h2 id="pasteTitle">Paste case file text</h2>
+  <p class="hint">Paste the text from "Copy case file as text" or from a saved .json case file.</p>
+  <textarea id="pasteText" rows="10" spellcheck="false"></textarea>
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px"><button type="button" class="btn" id="pasteCancel">Cancel</button><button type="button" class="btn primary" id="pasteLoad">Load case</button></div>
+</div>
+<div class="dropzone" id="dropzone" hidden><div>Drop a case file or field report to open it</div></div>
+<script id="srp-engine">
+/* Submersion & Refloat engine. Pure functions, no DOM. Calibrated to the TFMP research study (Oct 2026). */
+const Engine = (() => {
+  const FT = 0.3048, G = 9.81;
+  function rng(seed) {
+    let a = seed >>> 0, spare = null;
+    const r = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    const o = { r, u: (lo, hi) => lo + (hi - lo) * r() };
+    o.n = () => { if (spare !== null) { const s = spare; spare = null; return s; } let u = 0; while (u === 0) u = r(); const v = r(); const m = Math.sqrt(-2 * Math.log(u)); spare = m * Math.sin(2 * Math.PI * v); return m * Math.cos(2 * Math.PI * v); };
+    o.ln = (med, gsd) => med * Math.exp(o.n() * Math.log(gsd));
+    return o;
+  }
+  const fToC = f => (f - 32) * 5 / 9;
+  const cToF = c => c * 9 / 5 + 32;
+  function env(inp) { const rho = inp.water === 'salt' ? 1025 : 998; const atmFt = 10.33 * 998 / rho / FT; return { rho, P: z => 1 + z / atmFt, atmFt }; }
+
+  // Clothing: wet weight added (kgf) and air trapped at the surface (L). Assumptions, see Evidence panel.
+  const CLOTH = { swim: { wet: [0, 0.05], air: [0, 0.3] }, normal: { wet: [0.1, 0.4], air: [0, 2] }, heavy: { wet: [0.5, 1.5], air: [1, 5] } };
+  const SWIM = { weak: 0.4, avg: 1, strong: 2.5 };
+
+  function drawBody(R, inp, E) {
+    const m = inp.weightLb * 0.4536, sc = m / 77;
+    // Donoghue & Minnigerode 1977: 7% of men float at post-mortem lung volume in fresh water -> N(1.476, 1.0) kgf for a 77 kg man.
+    const fat = -(inp.bodyFat - 20) / 100 * m * (1 / 0.9 - 1 / 1.1);      // fat (0.90) replacing lean tissue (1.10 kg/L)
+    const salt = -(m / 1.01) * (E.rho - 998) / 1000;                       // extra lift of seawater on body volume
+    const rv = sc * (1.476 + R.n()) + fat + salt;
+    const c = CLOTH[inp.clothing] || CLOTH.normal;
+    const nb = rv + R.u(0.5, 1.5) + R.u(c.wet[0], c.wet[1]);              // + lung air replaced by water, + wet clothing
+    return { nb, air: R.u(c.air[0], c.air[1]), cda: R.u(0.30, 0.60) * Math.pow(sc, 2 / 3), sc };
+  }
+  const vTerm = (F, b, E) => Math.sqrt(2 * Math.max(F, 0.5) / (E.rho * b.cda));
+  function netForce(b, z, E) { return b.nb * G - (b.air / 1000) * E.rho * G / E.P(z); }
+
+  function descent(b, D, E, rec) {
+    let t = 0, k = 0; const dz = 0.5; const out = rec ? new Array(rec.length) : null;
+    for (let z = 0; z < D; z += dz) {
+      const step = Math.min(dz, D - z);
+      t += step * FT / vTerm(netForce(b, z + step / 2, E), b, E);
+      if (rec) while (k < rec.length && rec[k] <= z + step + 1e-9) { out[k++] = t; }
+    }
+    if (rec) while (k < rec.length) out[k++] = t;
+    return { t, out };
+  }
+
+  function surfacePhase(R, b, inp, E) {
+    const Fs = netForce(b, 0, E);
+    if (inp.scenario === 'A') return { s: Fs > 0 ? R.ln(45, 1.8) : R.ln(180, 2.0), fail: 0 };
+    if (inp.scenario === 'B') return { s: R.u(0, 60) + R.u(20, 60) + R.u(30, 120), fail: 0 };
+    const tc = fToC(inp.surfaceTempF);
+    let med = tc >= 20 ? 20 : tc >= 10 ? 10 + (tc - 10) : tc >= 5 ? 6 + (tc - 5) * 0.8 : 6;
+    med *= SWIM[inp.swimAbility] || 1;
+    const fail = Math.min(Math.max(R.ln(med, 2.2), 2), 240) * 60;
+    return { s: fail + R.u(20, 60) + R.u(30, 90), fail };
+  }
+
+  function swimDrift(R, failSec, inp) {
+    let off = 0, tl = failSec, dir = R.r() < 0.5 ? -1 : 1; const sp = R.u(0.25, 0.6) / FT;
+    while (tl > 0) { const seg = Math.min(-180 * Math.log(1 - R.r()), tl); off += dir * sp * seg * (1 - R.u(0, 0.5)); tl -= seg; if (R.r() < 0.6) dir = -dir; }
+    if (inp.areaAcres > 0) { const per = 2 * Math.PI * Math.sqrt(inp.areaAcres * 4046.86 / Math.PI) / FT; off = ((off + per / 2) % per + per) % per - per / 2; }
+    return Math.abs(off);
+  }
+
+  function rate(T, q10) { if (T <= 4) return 0; let r = Math.pow(q10, (T - 24) / 10); if (T < 8) r *= (T - 4) / 4; return r; }
+  function drawDecomp(R, sc) { return { q10: R.u(2.5, 4), gmax: R.u(15, 40) * sc, d50: R.u(3, 4.5), sl: R.u(0.5, 0.9), kl: R.u(0.05, 0.2), kd: R.u(0.1, 0.4) }; }
+
+  function refloat(b, dp, depth, tempC, E, opt = {}) {
+    const maxDay = opt.maxDay || 365, dt = 0.2, p = E.P(depth);
+    const need = b.nb / (E.rho / 1000) * p;
+    const r = rate(tempC, dp.q10), loss = dp.kl * (1 + dp.kd * (p - 1));
+    const tr = opt.trace ? [] : null; let D = 0, Gs = 0, hit = NaN, next = 0;
+    if (r === 0 && !tr) return { day: NaN, need };
+    for (let day = 0; day <= maxDay + 1e-9; day += dt) {
+      if (tr && day >= next - 1e-9) { tr.push(Gs); next += 1; }
+      if (Gs >= need && isNaN(hit)) { hit = day; if (!tr) break; }
+      const s = 1 / (1 + Math.exp(-(D - dp.d50) / dp.sl));
+      const prod = dp.gmax * s * (1 - s) / dp.sl * r;
+      Gs += (prod - loss * Gs) * dt; D += r * dt;
+      if (!tr && D > dp.d50 + 12 * dp.sl && Gs < need && prod < loss * Gs) break;
+      if (tr && day > (opt.traceDays || 90)) break;
+    }
+    return { day: hit, need, trace: tr };
+  }
+
+  const pct = (arr, p) => { if (!arr.length) return NaN; const a = Float64Array.from(arr).sort(); const i = (a.length - 1) * p / 100, lo = Math.floor(i), hi = Math.ceil(i); return a[lo] + (a[hi] - a[lo]) * (i - lo); };
+
+  function run(inp) {
+    const E = env(inp), R = rng(inp.seed || 1), N = inp.runs || 3000;
+    const D = inp.restDepthFt, Tc = fToC(inp.restTempF);
+    const recDepths = []; for (let i = 0; i <= 40; i++) recDepths.push(D * i / 40);
+    const res = { N, floaters: 0, surface: [], descent: [], total: [], vSurf: [], vRest: [], offset: [], drift: [], glide: [], refl: [], traj: [], traces: [], needs: [], fail: [] };
+    for (let i = 0; i < N; i++) {
+      const b = drawBody(R, inp, E);
+      const sp = surfacePhase(R, b, inp, E);
+      const dp = drawDecomp(R, b.sc);
+      const coneDeg = R.u(3, 20), gz = Math.min(Math.abs(R.n()), 1);
+      const driftA = inp.scenario === 'C' ? swimDrift(R, sp.fail, inp) : Math.abs(R.n()) * (inp.scenario === 'A' ? 3 : 8);
+      if (b.nb <= 0.3) { res.floaters++; continue; }
+      const dc = descent(b, D, E, i < 400 ? recDepths : null);
+      const glide = D * Math.tan(coneDeg * Math.PI / 180) * gz;
+      res.surface.push(sp.s / 60); res.descent.push(dc.t / 60); res.total.push((sp.s + dc.t) / 60);
+      res.vSurf.push(vTerm(netForce(b, 0, E), b, E) / FT); res.vRest.push(vTerm(netForce(b, D, E), b, E) / FT);
+      res.drift.push(driftA); res.glide.push(glide); res.offset.push(driftA + glide);
+      if (sp.fail) res.fail.push(sp.fail / 60);
+      if (i < 400) res.traj.push({ s: sp.s, t: dc.out });
+      const rf = refloat(b, dp, D, Tc, E, i < 300 ? { trace: true, traceDays: 120, maxDay: 365 } : {});
+      if (i < 300) { res.traces.push(rf.trace); res.needs.push(rf.need); }
+      res.refl.push(rf.day);
+    }
+    res.recDepths = recDepths; res.sunk = res.refl.length;
+    res.risers = res.refl.filter(d => !isNaN(d));
+    res.pYear = res.sunk ? res.risers.length / res.sunk : 0;
+    res.cdf = d => res.sunk ? res.risers.filter(x => x <= d).length / res.sunk : 0;
+    return res;
+  }
+
+  function refloatProb(inp, depth, tempF, M, seed) {
+    const E = env(inp), R = rng(seed), out = []; let sunk = 0;
+    for (let i = 0; i < M; i++) { const b = drawBody(R, inp, E); const dp = drawDecomp(R, b.sc); if (b.nb <= 0.3) continue; sunk++; out.push(refloat(b, dp, depth, fToC(tempF), E).day); }
+    const ris = out.filter(d => !isNaN(d));
+    return { sunk, risers: ris, by: d => sunk ? ris.filter(x => x <= d).length / sunk : 0, pYear: sunk ? ris.length / sunk : 0 };
+  }
+
+  return { run, refloatProb, pct, fToC, cToF, env, rate, FT };
+})();
+if (typeof module !== 'undefined') module.exports = Engine;
+</script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const E = Engine, pct = E.pct;
+  const fmt = (x, d = 0) => isFinite(x) ? x.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }) : '—';
+  const pctS = p => p >= 0.995 ? '>99%' : p < 0.005 ? '<1%' : Math.round(p * 100) + '%';
+  const todayISO = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+
+  const PRESETS = {
+    grant: {
+      note: 'Example inputs: a deep, flooded rock quarry in late spring. Replace the temperatures, depths and zone weights with measured values for your site.',
+      v: { caseName: 'Deep quarry example', incident: '2026-05-30T23:00', observed: 'today', weightLb: 170, heightIn: 72, build: '12', bodyFat: 12, clothing: 'normal', scenario: 'A', swimAbility: 'avg', water: 'fresh', restDepthFt: 180, maxDepthFt: 200, surfaceTempF: 72, restTempF: 48, areaAcres: 12, runs: '3000', seed: 2026 },
+      zones: [['Shallow ledge', 10, 75, 1], ['Upper bench', 25, 72, 1], ['Thermocline shelf', 40, 54, 1], ['Mid wall', 70, 48, 1], ['Lower wall', 100, 48, 1], ['Basin floor', 180, 48, 2]]
+    },
+    summer: {
+      note: 'Example inputs: warm natural lake in July. Replace with measured temperatures and depths.',
+      v: { caseName: 'Warm lake example', incident: '2026-07-04T16:30', observed: '2026-07-06', weightLb: 185, heightIn: 70, build: '20', bodyFat: 20, clothing: 'swim', scenario: 'B', swimAbility: 'weak', water: 'fresh', restDepthFt: 25, maxDepthFt: 40, surfaceTempF: 82, restTempF: 76, areaAcres: 180, runs: '3000', seed: 11 },
+      zones: [['Swim area drop-off', 10, 80, 1], ['Mid slope', 20, 78, 2], ['Channel', 32, 70, 1], ['Deep hole', 40, 64, 0.5]]
+    },
+    reservoir: {
+      note: 'Example inputs: cold, deep reservoir in early spring. Replace with measured temperatures and depths.',
+      v: { caseName: 'Reservoir example', incident: '2026-03-14T18:10', observed: '2026-04-20', weightLb: 205, heightIn: 71, build: '28', bodyFat: 28, clothing: 'heavy', scenario: 'C', swimAbility: 'avg', water: 'fresh', restDepthFt: 120, maxDepthFt: 160, surfaceTempF: 48, restTempF: 42, areaAcres: 900, runs: '3000', seed: 31 },
+      zones: [['Boat ramp shelf', 15, 48, 1], ['Old roadbed', 45, 45, 1], ['Creek channel', 90, 42, 1.5], ['Dam basin', 140, 41, 1]]
+    },
+    harbor: {
+      note: 'Example inputs: sheltered saltwater harbor. Tides and currents are not modeled; use only for slack, sheltered water.',
+      v: { caseName: 'Harbor example', incident: '2026-09-02T01:20', observed: '2026-09-05', weightLb: 160, heightIn: 69, build: '20', bodyFat: 20, clothing: 'normal', scenario: 'A', swimAbility: 'avg', water: 'salt', restDepthFt: 35, maxDepthFt: 45, surfaceTempF: 72, restTempF: 68, areaAcres: 0, runs: '3000', seed: 5 },
+      zones: [['Pier face', 15, 72, 1], ['Berth', 35, 68, 2], ['Channel edge', 45, 66, 1]]
+    }
+  };
+
+  let zones = [];
+  const FIELDS = ['caseName', 'caseNotes', 'incident', 'observed', 'weightLb', 'heightIn', 'build', 'bodyFat', 'swimAbility', 'restDepthFt', 'maxDepthFt', 'surfaceTempF', 'restTempF', 'areaAcres', 'runs', 'seed'];
+  const RADIOS = ['clothing', 'scenario', 'water'];
+
+  function setForm(v) {
+    FIELDS.forEach(k => { if (v[k] !== undefined) $(k).value = v[k] === 'today' ? todayISO() : v[k]; });
+    RADIOS.forEach(k => { const el = document.querySelector(`input[name=${k}][value="${v[k]}"]`); if (el) el.checked = true; });
+    syncSwim();
+  }
+  function getForm() {
+    const n = k => parseFloat($(k).value);
+    const r = k => (document.querySelector(`input[name=${k}]:checked`) || {}).value;
+    return {
+      caseName: $('caseName').value.trim(), caseNotes: $('caseNotes').value, incident: $('incident').value, observed: $('observed').value,
+      weightLb: clamp(n('weightLb'), 40, 450, 170), heightIn: clamp(n('heightIn'), 36, 90, 70), bodyFat: clamp(n('bodyFat'), 4, 55, 20),
+      clothing: r('clothing') || 'normal', scenario: r('scenario') || 'A', swimAbility: $('swimAbility').value, water: r('water') || 'fresh',
+      restDepthFt: clamp(n('restDepthFt'), 3, 600, 30), maxDepthFt: clamp(n('maxDepthFt'), 3, 1000, 60),
+      surfaceTempF: clamp(n('surfaceTempF'), 32, 95, 70), restTempF: clamp(n('restTempF'), 32, 95, 60), areaAcres: clamp(n('areaAcres'), 0, 1e5, 0),
+      runs: parseInt($('runs').value, 10) || 3000, seed: Math.round(clamp(n('seed'), 1, 999999, 1))
+    };
+  }
+  function clamp(x, lo, hi, d) { return isFinite(x) ? Math.min(hi, Math.max(lo, x)) : d; }
+  function syncSwim() { const sc = (document.querySelector('input[name=scenario]:checked') || {}).value; $('swimRow').hidden = sc !== 'C'; }
+
+  function loadPreset(key) {
+    const p = PRESETS[key]; if (!p) return;
+    setForm(Object.assign({ caseNotes: '' }, p.v)); $('runs').value = String(settings.runs || p.v.runs); zones = p.zones.map(z => ({ label: z[0], depth: z[1], temp: z[2], w: z[3] }));
+    logEvent('Loaded example', p.v.caseName, 'Example inputs, not case data');
+    $('exampleNote').textContent = p.note; $('exampleNote').hidden = false;
+    renderZoneInputs(); schedule();
+  }
+
+  function daysBetween(incident, observed) {
+    if (!incident || !observed) return 0;
+    const a = new Date(incident), b = new Date(observed + 'T23:59');
+    const d = (b - a) / 86400000; return isFinite(d) && d > 0 ? d : 0;
+  }
+  function dateAt(incident, day) {
+    if (!incident) return null; const d = new Date(new Date(incident).getTime() + day * 86400000);
+    return isNaN(d) ? null : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  /* ---------- charts ---------- */
+  function niceMax(x) { const p = Math.pow(10, Math.floor(Math.log10(x))); const m = x / p; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10) * p; }
+  function ticks(max, n = 5) { const step = niceMax(max / n); const out = []; for (let v = 0; v <= max + 1e-9; v += step) out.push(+v.toFixed(6)); return out; }
+
+  function chartDescent(res, inp) {
+    const W = 640, H = 300, L = 52, Rr = 16, T = 18, B = 40;
+    const tr = res.traj; if (!tr.length) return '<p class="chart-note">No body sank in this run.</p>';
+    const tmax = niceMax(Math.max(pct(res.total, 90), 1) * 1.1);
+    const D = inp.restDepthFt, dmax = niceMax(Math.max(D, inp.maxDepthFt));
+    const x = m => L + m / tmax * (W - L - Rr), y = d => T + d / dmax * (H - T - B);
+    const steps = 80, mid = [], lo = [], hi = [];
+    for (let k = 0; k <= steps; k++) {
+      const tm = tmax * k / steps, ts = tm * 60, ds = [];
+      for (const t of tr) {
+        if (ts <= t.s) { ds.push(0); continue; }
+        const dt = ts - t.s; const arr = t.t; let j = 0; while (j < arr.length && arr[j] < dt) j++;
+        if (j >= arr.length) ds.push(D); else if (j === 0) ds.push(0); else { const f = (dt - arr[j - 1]) / (arr[j] - arr[j - 1]); ds.push(res.recDepths[j - 1] + f * (res.recDepths[j] - res.recDepths[j - 1])); }
+      }
+      mid.push([tm, pct(ds, 50)]); lo.push([tm, pct(ds, 5)]); hi.push([tm, pct(ds, 95)]);
+    }
+    let s = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Depth of the body over time after entry">`;
+    s += `<rect x="${L}" y="${y(0)}" width="${W - L - Rr}" height="${y(Math.min(inp.maxDepthFt, dmax)) - y(0)}" fill="var(--water-soft)" opacity=".55"/>`;
+    ticks(dmax).forEach(d => { s += `<line x1="${L}" x2="${W - Rr}" y1="${y(d)}" y2="${y(d)}" stroke="var(--line-2)"/><text x="${L - 6}" y="${y(d) + 4}" text-anchor="end">${fmt(d)} ft</text>`; });
+    ticks(tmax).forEach(m => { s += `<text x="${x(m)}" y="${H - B + 16}" text-anchor="middle">${fmt(m, m < 10 && m % 1 ? 1 : 0)}</text>`; });
+    s += `<text x="${(L + W - Rr) / 2}" y="${H - 6}" text-anchor="middle">minutes after entry</text>`;
+    s += `<line x1="${L}" x2="${W - Rr}" y1="${y(D)}" y2="${y(D)}" stroke="var(--gold)" stroke-dasharray="5 4"/><text x="${W - Rr}" y="${y(D) - 6}" text-anchor="end" class="t-gold">resting depth ${fmt(D)} ft</text>`;
+    const band = hi.map(p => `${x(p[0])},${y(p[1])}`).join(' ') + ' ' + lo.slice().reverse().map(p => `${x(p[0])},${y(p[1])}`).join(' ');
+    s += `<polygon points="${band}" fill="var(--water)" opacity=".18"/>`;
+    s += `<polyline points="${mid.map(p => `${x(p[0])},${y(p[1])}`).join(' ')}" fill="none" stroke="var(--water)" stroke-width="2.5"/>`;
+    const tb = pct(res.total, 50);
+    if (tb <= tmax) s += `<circle cx="${x(tb)}" cy="${y(D)}" r="5" fill="var(--water)"/><text x="${Math.min(x(tb) + 8, W - Rr - 120)}" y="${y(D) + 18}" class="t-water">median ${fmt(tb, 1)} min</text>`;
+    s += `</svg>`; return s;
+  }
+
+  function chartRefloat(res, inp, obsDays) {
+    const W = 640, H = 300, L = 46, Rr = 16, T = 18, B = 40;
+    const p95 = res.risers.length ? pct(res.risers, 95) : 60;
+    const want = Math.max(30, p95 * 1.25); const dmax = Math.min(365, niceMax(obsDays > 0 && obsDays < want * 2.5 ? Math.max(want, obsDays * 1.1) : want));
+    const x = d => L + d / dmax * (W - L - Rr), y = p => T + (1 - p) * (H - T - B);
+    let s = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Cumulative probability of refloat by day">`;
+    [0, .25, .5, .75, 1].forEach(p => { s += `<line x1="${L}" x2="${W - Rr}" y1="${y(p)}" y2="${y(p)}" stroke="var(--line-2)"/><text x="${L - 6}" y="${y(p) + 4}" text-anchor="end">${p * 100}%</text>`; });
+    ticks(dmax, 6).forEach(d => { s += `<text x="${x(d)}" y="${H - B + 16}" text-anchor="middle">${fmt(d)}</text>`; });
+    s += `<text x="${(L + W - Rr) / 2}" y="${H - 6}" text-anchor="middle">days after entry</text>`;
+    const pts = []; const n = 160; for (let k = 0; k <= n; k++) { const d = dmax * k / n; pts.push([d, res.cdf(d)]); }
+    s += `<polygon points="${x(0)},${y(0)} ${pts.map(p => `${x(p[0])},${y(p[1])}`).join(' ')} ${x(dmax)},${y(0)}" fill="var(--water)" opacity=".14"/>`;
+    s += `<polyline points="${pts.map(p => `${x(p[0])},${y(p[1])}`).join(' ')}" fill="none" stroke="var(--water)" stroke-width="2.5"/>`;
+    const py = res.pYear; s += `<line x1="${L}" x2="${W - Rr}" y1="${y(py)}" y2="${y(py)}" stroke="var(--ink-3)" stroke-dasharray="3 4"/><text x="${W - Rr}" y="${y(py) - 6}" text-anchor="end" class="t-strong">${pctS(py)} within 1 year</text>`;
+    if (obsDays > 0 && obsDays <= dmax) {
+      const pc = res.cdf(obsDays);
+      s += `<line x1="${x(obsDays)}" x2="${x(obsDays)}" y1="${T}" y2="${H - B}" stroke="var(--gold)" stroke-width="2"/><circle cx="${x(obsDays)}" cy="${y(pc)}" r="5" fill="var(--gold)"/>`;
+      const right = x(obsDays) > W * 0.62;
+      s += `<text x="${x(obsDays) + (right ? -8 : 8)}" y="${T + 12}" text-anchor="${right ? 'end' : 'start'}" class="t-gold">no body seen, day ${fmt(obsDays)}</text>`;
+    } else if (obsDays > dmax) {
+      s += `<text x="${W - Rr}" y="${T + 12}" text-anchor="end" class="t-gold">no body seen, day ${fmt(obsDays)} (off scale)</text>`;
+    }
+    s += `</svg>`; return s;
+  }
+
+  function chartGas(res) {
+    const W = 640, H = 280, L = 46, Rr = 16, T = 18, B = 40;
+    if (!res.traces.length) return '';
+    const days = 90, need = pct(res.needs, 50);
+    const med = [], q1 = [], q3 = [];
+    for (let d = 0; d <= days; d++) { const v = res.traces.map(t => t[Math.min(d, t.length - 1)] || 0); med.push(pct(v, 50)); q1.push(pct(v, 25)); q3.push(pct(v, 75)); }
+    const ymax = niceMax(Math.max(need, Math.max(...q3)) * 1.15);
+    const x = d => L + d / days * (W - L - Rr), y = v => T + (1 - v / ymax) * (H - T - B);
+    let s = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Decomposition gas over time compared with gas needed to lift the body">`;
+    ticks(ymax, 4).forEach(v => { s += `<line x1="${L}" x2="${W - Rr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line-2)"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${fmt(v)} L</text>`; });
+    [0, 15, 30, 45, 60, 75, 90].forEach(d => { s += `<text x="${x(d)}" y="${H - B + 16}" text-anchor="middle">${d}</text>`; });
+    s += `<text x="${(L + W - Rr) / 2}" y="${H - 6}" text-anchor="middle">days after death</text>`;
+    s += `<polygon points="${q3.map((v, d) => `${x(d)},${y(v)}`).join(' ')} ${q1.map((v, d) => [x(d), y(v)]).reverse().map(p => p.join(',')).join(' ')}" fill="var(--water)" opacity=".18"/>`;
+    s += `<polyline points="${med.map((v, d) => `${x(d)},${y(v)}`).join(' ')}" fill="none" stroke="var(--water)" stroke-width="2.5"/>`;
+    s += `<line x1="${L}" x2="${W - Rr}" y1="${y(need)}" y2="${y(need)}" stroke="var(--bad)" stroke-width="1.5" stroke-dasharray="6 4"/><text x="${W - Rr}" y="${y(need) - 6}" text-anchor="end" class="t-strong">gas needed to lift: ${fmt(need, 1)} L</text>`;
+    let pk = 0; med.forEach((v, d) => { if (v > med[pk]) pk = d; });
+    s += `<circle cx="${x(pk)}" cy="${y(med[pk])}" r="4.5" fill="var(--water)"/><text x="${x(pk) + 8}" y="${y(med[pk]) - 8}" class="t-water">median peak ${fmt(med[pk], 1)} L, day ${pk}</text>`;
+    s += `</svg>`; return { svg: s, need, peak: med[pk], pk };
+  }
+
+  /* ---------- zones ---------- */
+  function renderZoneInputs() {
+    const tb = $('zones').querySelector('tbody');
+    tb.innerHTML = zones.map((z, i) => `<tr data-i="${i}">
+      <td><input class="lbl" type="text" id="z-l-${i}" value="${esc(z.label)}" aria-label="Zone name"></td>
+      <td class="num"><input type="number" id="z-d-${i}" value="${z.depth}" min="1" max="1000" aria-label="Depth ft"></td>
+      <td class="num"><input type="number" id="z-t-${i}" value="${z.temp}" min="32" max="95" aria-label="Temperature F"></td>
+      <td class="num"><input type="number" id="z-w-${i}" value="${z.w}" min="0" max="100" step="0.5" aria-label="Start weight"></td>
+      <td class="num mono" id="z-by-${i}">—</td><td class="num mono" id="z-y-${i}">—</td>
+      <td><div class="bar-cell"><div class="bar-track"><div class="bar-fill" id="z-bar-${i}" style="width:0%"></div></div><span class="mono" id="z-post-${i}" style="min-width:40px;text-align:right">—</span></div></td>
+      <td><button type="button" class="icon-btn" data-del="${i}" aria-label="Remove zone" title="Remove zone">&times;</button></td></tr>`).join('');
+  }
+  function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+  function readZones() {
+    zones = zones.map((z, i) => ({ label: $('z-l-' + i).value, depth: clamp(parseFloat($('z-d-' + i).value), 1, 1000, z.depth), temp: clamp(parseFloat($('z-t-' + i).value), 32, 95, z.temp), w: clamp(parseFloat($('z-w-' + i).value), 0, 100, z.w) }));
+  }
+
+  /* ---------- heat map ---------- */
+  const HD = [10, 20, 30, 40, 60, 80, 100, 130, 160, 200, 250], HT = [40, 42, 45, 48, 50, 55, 60, 65, 70, 75, 80];
+  function heatColor(p) { return `color-mix(in srgb, var(--water) ${Math.round(8 + p * 82)}%, var(--panel))`; }
+
+  /* ---------- main run ---------- */
+  let timer = null, runId = 0, last = null;
+  function schedule() { clearTimeout(timer); timer = setTimeout(runAll, 250); }
+
+  function runAll(cb, why) {
+    if (typeof cb !== 'function') cb = null;
+    const id = ++runId; const inp = getForm(); readZones(); save(inp);
+    const obsDays = daysBetween(inp.incident, inp.observed);
+    const t0 = performance.now();
+    const res = E.run(inp);
+    const ms = performance.now() - t0;
+    last = { inp, res, obsDays };
+    renderMain(inp, res, obsDays, ms);
+    // zones and heat map after paint
+    setTimeout(() => { if (id !== runId) return; renderZones(inp, obsDays); if (why || settings.logRuns === 'all') logEvent(why || 'Model run', inp.caseName, runDetail()); if (cb) cb(); }, 20);
+    setTimeout(() => { if (id !== runId) return; renderHeat(inp, id); }, 60);
+  }
+
+  function renderMain(inp, res, obsDays, ms) {
+    const sunk = res.sunk, fl = res.floaters / res.N;
+    const p = res.pYear, pObs = obsDays > 0 ? res.cdf(obsDays) : 0;
+    const cond = obsDays > 0 ? (p - pObs) / Math.max(1e-9, 1 - pObs) : p;
+    const state = p >= 0.7 ? 'likely' : p >= 0.3 ? 'uncertain' : 'unlikely';
+    const v = $('verdict'); v.dataset.state = state;
+    const chip = $('vChip'); chip.className = 'chip ' + state; chip.textContent = { likely: 'Likely to resurface', uncertain: 'Uncertain', unlikely: 'Unlikely to resurface' }[state];
+    $('vMeta').textContent = `${fmt(res.N)} simulations · seed ${inp.seed} · model ${APP.model} · ${fmt(ms)} ms`;
+    const tC = E.fToC(inp.restTempF);
+    const r10 = res.risers.length ? pct(res.risers, 10) : NaN, r50 = res.risers.length ? pct(res.risers, 50) : NaN, r90 = res.risers.length ? pct(res.risers, 90) : NaN;
+    let head;
+    if (state === 'likely') head = `A body at ${fmt(inp.restDepthFt)} ft in ${fmt(inp.restTempF)} °F water would most likely resurface around day ${fmt(r50, 0)}${inp.incident ? ' (' + dateAt(inp.incident, r50) + ')' : ''}.`;
+    else if (state === 'uncertain') head = `About ${pctS(p)} of simulated bodies resurface within a year at ${fmt(inp.restDepthFt)} ft and ${fmt(inp.restTempF)} °F. Plan for both surface watch and subsurface search.`;
+    else head = `At ${fmt(inp.restDepthFt)} ft and ${fmt(inp.restTempF)} °F, a body would most likely stay down. Plan for sonar, ROV or dive recovery.`;
+    $('vHead').textContent = head;
+    let sub = `Gas needed to lift the body at this depth is ${fmt(E.env(inp).P(inp.restDepthFt), 1)}× what it would need at the surface (${fmt(inp.restDepthFt)} ft = ${fmt(E.env(inp).P(inp.restDepthFt), 1)} atm absolute), and water at ${fmt(tC, 1)} °C ${tC <= 4 ? 'stops' : tC < 10 ? 'sharply slows' : tC < 16 ? 'slows' : 'allows fast'} gas production.`;
+    if (fl > 0.02) sub += ` ${pctS(fl)} of simulated bodies never sink (they float face-down); check the surface and shorelines first.`;
+    $('vSub').textContent = sub;
+
+    $('k-bottom').innerHTML = `${fmt(pct(res.total, 50), res.total.length && pct(res.total, 50) < 10 ? 1 : 0)}<small> min</small>`;
+    $('k-bottom-s').textContent = `90% range ${fmt(pct(res.total, 5), 1)}–${fmt(pct(res.total, 95), 1)} min · sinks ${fmt(pct(res.vSurf, 50), 1)}–${fmt(pct(res.vRest, 50), 1)} ft/s`;
+    $('k-p365').innerHTML = pctS(p);
+    $('k-p365-s').textContent = `${pctS(res.cdf(7))} within 7 days · ${pctS(res.cdf(30))} within 30 days`;
+    if (p >= 0.1 && res.risers.length) {
+      $('k-window').innerHTML = `${fmt(r10, r10 < 10 ? 1 : 0)}–${fmt(r90, r90 < 10 ? 1 : 0)}<small> days</small>`;
+      $('k-window-s').textContent = inp.incident ? `${dateAt(inp.incident, r10)} – ${dateAt(inp.incident, r90)} (middle 80% of bodies that rise)` : 'middle 80% of bodies that rise';
+    } else { $('k-window').innerHTML = `<small>none</small>`; $('k-window-s').textContent = 'Refloat too unlikely for a surface watch to be the main plan'; }
+    if (obsDays > 0) { $('k-cond').innerHTML = pctS(Math.max(0, cond)); $('k-cond-s').textContent = `chance it still surfaces within a year, given none by day ${fmt(obsDays)}`; }
+    else { $('k-cond').innerHTML = pctS(p); $('k-cond-s').textContent = 'set the "no body seen through" date to update this'; }
+    const rad = pct(res.offset, 90);
+    $('k-radius').innerHTML = `${fmt(rad)}<small> ft</small>`;
+    $('k-radius-s').textContent = inp.scenario === 'C' ? '90% of bodies within this distance along the shore from entry' : '90% of bodies within this distance of the entry point';
+
+    $('chDescent').innerHTML = chartDescent(res, inp);
+    $('nDescent').textContent = `Line = median body, band = middle 90%. Surface phase median ${fmt(pct(res.surface, 50), 1)} min, then the descent takes a median ${fmt(pct(res.descent, 50), 1)} min to ${fmt(inp.restDepthFt)} ft.`;
+    $('chRefloat').innerHTML = chartRefloat(res, inp, obsDays);
+    $('nRefloat').textContent = res.risers.length ? `Of bodies that rise, the median is day ${fmt(r50, 1)} and 90% rise by day ${fmt(pct(res.risers, 90), 1)}. After day ${fmt(pct(res.risers, 99), 0)} the model expects no more gas-driven refloat.` : 'No simulated body gathered enough gas to rise from this depth and temperature.';
+    const g = chartGas(res);
+    $('chGas').innerHTML = g.svg || '';
+    $('nGas').textContent = g.svg ? (g.peak >= g.need ? `The median body's gas exceeds the lift needed, so it rises during the peak.` : `The median body's gas peaks at ${fmt(g.peak / g.need * 100)}% of what is needed to lift it, then leaks away. Band = middle 50% of bodies.`) : '';
+
+    // guidance
+    const G = [];
+    G.push(['First hour', inp.scenario === 'C' ? `A swimmer stays at the surface for a median ${fmt(pct(res.surface, 50))} min (90% range ${fmt(pct(res.surface, 5))}–${fmt(pct(res.surface, 95))} min). Thermal imaging and shoreline sweeps have the best chance in this window.` : `The body is likely on the bottom within ${fmt(pct(res.total, 90), 1)} min of entry (90% of runs). Surface searches after that will not see it.`]);
+    G.push(['Bottom search', inp.scenario === 'C' ? `Search the wall bases and shoreline drop-offs along the swim route: 50% of bodies lie within ${fmt(pct(res.offset, 50))} ft and 90% within ${fmt(rad)} ft of the entry point, measured along the shore.` : `Start at the best estimate of the entry point. 50% of bodies lie within ${fmt(pct(res.offset, 50))} ft and 90% within ${fmt(rad)} ft horizontally. Glide on the way down adds most of this.`]);
+    if (p >= 0.1 && res.risers.length) G.push(['Surface watch', `Watch shorelines, coves and downwind banks from day ${fmt(Math.max(0, pct(res.risers, 5)), 0)} to day ${fmt(pct(res.risers, 95), 0)}${inp.incident ? ` (${dateAt(inp.incident, pct(res.risers, 5))} – ${dateAt(inp.incident, pct(res.risers, 95))})` : ''}. That covers 90% of the bodies that rise.`]);
+    else G.push(['Surface watch', `Refloat is unlikely (${pctS(p)} within a year). Do not rely on the body resurfacing. Plan sonar, ROV or technical-dive coverage of the resting zone.`]);
+    if (obsDays > 0) G.push(['Elapsed time', `No body seen through day ${fmt(obsDays)}. If the body is at the modeled depth, the chance it still surfaces within a year is ${pctS(Math.max(0, cond))}. Use the zone table below to see which depths are now most likely.`]);
+    if (inp.restDepthFt > 130) G.push(['Diving', `${fmt(inp.restDepthFt)} ft is beyond most public-safety dive limits (typically 100–130 ft). Use sector-scan or imaging sonar and an ROV to confirm targets before committing divers.`]);
+    $('guide').innerHTML = G.map(r => `<li><span class="gk">${r[0]}</span><span>${r[1]}</span></li>`).join('');
+  }
+
+  function renderZones(inp, obsDays) {
+    if (!zones.length) { $('zoneSummary').textContent = 'Add zones to compare depths.'; return; }
+    const rs = zones.map((z, i) => E.refloatProb(inp, z.depth, z.temp, 800, 1000 + i));
+    const stay = rs.map(r => 1 - (obsDays > 0 ? r.by(obsDays) : 0));
+    const raw = zones.map((z, i) => z.w * stay[i]); const tot = raw.reduce((a, b) => a + b, 0) || 1;
+    const post = raw.map(x => x / tot);
+    let best = 0; post.forEach((x, i) => { if (x > post[best]) best = i; });
+    let futur = 0;
+    zones.forEach((z, i) => {
+      const r = rs[i], by = obsDays > 0 ? r.by(obsDays) : 0;
+      $('z-by-' + i).textContent = obsDays > 0 ? pctS(by) : '—';
+      $('z-y-' + i).textContent = pctS(r.pYear);
+      $('z-bar-' + i).style.width = (post[i] * 100).toFixed(1) + '%';
+      $('z-post-' + i).textContent = pctS(post[i]);
+      futur += post[i] * Math.max(0, (r.pYear - by) / Math.max(1e-9, 1 - by));
+    });
+    $('zoneSummary').textContent = obsDays > 0
+      ? `After ${fmt(obsDays)} days with no body seen, the most likely zone is "${zones[best].label}" (${pctS(post[best])}). Across all zones, the chance of a future refloat is ${pctS(futur)}.`
+      : `Set the "no body seen through" date to update the zone weights.`;
+    if (last) { last.zoneRows = zones.map((z, i) => ({ label: z.label, depth: z.depth, temp: z.temp, w: z.w, by: obsDays > 0 ? rs[i].by(obsDays) : null, pYear: rs[i].pYear, post: post[i] })); last.zoneFuture = futur; }
+    if (last) last.zoneText = zones.map((z, i) => `  ${z.label} (${z.depth} ft, ${z.temp} °F): ${pctS(post[i])}`).join('\n');
+  }
+
+  function renderHeat(inp, id) {
+    const cells = []; let k = 0;
+    const curD = HD.reduce((a, b) => Math.abs(b - inp.restDepthFt) < Math.abs(a - inp.restDepthFt) ? b : a);
+    const curT = HT.reduce((a, b) => Math.abs(b - inp.restTempF) < Math.abs(a - inp.restTempF) ? b : a);
+    const host = $('heat'); const heatVals = []; host.style.gridTemplateColumns = `56px repeat(${HT.length}, minmax(40px, 1fr))`;
+    let html = `<div class="hh">ft \\ °F</div>` + HT.map(t => `<div class="hh">${t}°</div>`).join('');
+    HD.forEach(d => {
+      html += `<div class="hr">${d} ft</div>`;
+      HT.forEach(t => { const p = E.refloatProb(inp, d, t, 300, 77 + (k++)).pYear; heatVals.push(p); const cur = d === curD && t === curT;
+        html += `<div class="hc${cur ? ' cur' : ''}" style="background:${heatColor(p)};color:${p > 0.55 ? 'var(--panel)' : 'var(--ink)'}" title="${d} ft, ${t} °F: ${pctS(p)} refloat within 1 year">${Math.round(p * 100)}</div>`; });
+    });
+    if (id === runId) { host.innerHTML = html; if (last) last.heat = { d: HD, t: HT, v: heatVals, curD, curT }; }
+  }
+
+  /* ---------- summary / storage ---------- */
+  function summaryText() {
+    if (!last) return '';
+    const { inp, res, obsDays } = last; const p = res.pYear, pObs = obsDays > 0 ? res.cdf(obsDays) : 0;
+    const lines = [
+      `SUBMERSION & REFLOAT MODEL — ${inp.caseName || 'unnamed case'}`,
+      `Entry: ${inp.incident || 'not set'} · No body seen through: ${inp.observed || 'not set'} (day ${fmt(obsDays, 1)})`,
+      `Subject: ${inp.weightLb} lb, ${inp.heightIn} in, ~${inp.bodyFat}% body fat, ${inp.clothing} clothing · Scenario: ${{ A: 'unconscious on entry', B: 'conscious, cannot swim', C: 'swam until exhausted' }[inp.scenario]}`,
+      `Water: ${inp.water}, resting depth ${inp.restDepthFt} ft at ${inp.restTempF} °F (surface ${inp.surfaceTempF} °F)`,
+      ``,
+      `Time to bottom: median ${fmt(pct(res.total, 50), 1)} min (90% range ${fmt(pct(res.total, 5), 1)}–${fmt(pct(res.total, 95), 1)})`,
+      `Refloat within 1 year: ${pctS(p)} · within 30 days: ${pctS(res.cdf(30))}`,
+      res.risers.length && p >= 0.1 ? `Surface-watch window (middle 80%): day ${fmt(pct(res.risers, 10), 1)}–${fmt(pct(res.risers, 90), 1)}` : `Surface-watch window: refloat too unlikely`,
+      obsDays > 0 ? `Given no body by day ${fmt(obsDays)}: ${pctS(Math.max(0, (p - pObs) / Math.max(1e-9, 1 - pObs)))} chance it still surfaces within a year` : '',
+      `Bottom search radius (90%): ${fmt(pct(res.offset, 90))} ft${inp.scenario === 'C' ? ' along shore' : ''}`,
+      last.zoneText ? `Likelihood by zone now:\n${last.zoneText}` : '',
+      ``, `${fmt(res.N)} simulations, seed ${inp.seed}. Still-water model; currents and tides not modeled. Planning estimate, not a prediction for an individual.`
+    ];
+    return lines.filter(l => l !== '').join('\n');
+  }
+  function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => t.hidden = true, 2600); }
+  function save(inp) { try { localStorage.setItem('srp-inputs', JSON.stringify({ inp, zones })); } catch (e) { } }
+  function restore() { try { const s = JSON.parse(localStorage.getItem('srp-inputs') || 'null'); if (s && s.inp) { setForm(s.inp); zones = s.zones || []; return true; } } catch (e) { } return false; }
+
+  /* ---------- wiring ---------- */
+  $('form').addEventListener('input', e => {
+    if (e.target.id === 'caseNotes' || e.target.id === 'caseName') { if (last) { last.inp.caseNotes = $('caseNotes').value; last.inp.caseName = $('caseName').value.trim(); save(last.inp); } return; }
+    if (e.target.id === 'bodyFat') $('build').value = 'custom';
+    if (e.target.id === 'build' && e.target.value !== 'custom') $('bodyFat').value = e.target.value;
+    if (e.target.name === 'scenario') syncSwim();
+    $('exampleNote').hidden = true; schedule();
+  });
+  $('form').addEventListener('submit', e => e.preventDefault());
+  $('zones').addEventListener('input', () => { readZones(); clearTimeout(timer); timer = setTimeout(() => { if (last) { renderZones(last.inp, last.obsDays); save(last.inp); } }, 250); });
+  $('zones').addEventListener('click', e => { const i = e.target.dataset && e.target.dataset.del; if (i !== undefined) { readZones(); zones.splice(+i, 1); renderZoneInputs(); if (last) renderZones(last.inp, last.obsDays); } });
+  $('addZone').addEventListener('click', () => { readZones(); const f = getForm(); zones.push({ label: 'New zone', depth: f.restDepthFt, temp: f.restTempF, w: 1 }); renderZoneInputs(); if (last) renderZones(last.inp, last.obsDays); });
+  $('preset').addEventListener('change', e => { if (e.target.value) loadPreset(e.target.value); e.target.value = ''; });
+  $('runBtn').addEventListener('click', () => runAll(null, 'Manual run'));
+  $('copy').addEventListener('click', () => {
+    const txt = summaryText();
+    const fallback = () => { const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); toast('Summary copied'); } catch (e) { toast('Select and copy the summary manually'); } ta.remove(); };
+    try { navigator.clipboard.writeText(txt).then(() => toast('Summary copied'), fallback); } catch (e) { fallback(); }
+    closeMenu(); logEvent('Copied summary', last && last.inp.caseName, runDetail());
+  });
+
+  /* ================= versioning, settings, audit, case files ================= */
+  const APP = { name: 'Submersion & Refloat Planner', version: '1.1.1', released: '2026-11-17', model: 'M1.0', modelDate: '2026-10-21', caseFormat: 1 };
+  const VERSIONS = [
+    { v: '1.1.1', date: '2026-11-17', tag: 'App', items: [
+      'Open-source release under the MIT License.',
+      'Runs as a single standalone file: open index.html in any modern browser, no install or internet connection needed.',
+      'Deep-quarry example made generic (no real case details).'] },
+    { v: '1.1.0', date: '2026-11-11', tag: 'App', items: [
+      'Case files: save a case as a .json file, or copy it as text, and open it again later to get the same view.',
+      'Field report: a standalone .html report with the verdict, charts, zone table and inputs. It opens in any browser, prints, and can be opened back in the planner.',
+      'Opening a case file reruns the model and checks the results against the ones saved in the file.',
+      'Settings: prepared-by name, appearance for daylight or night use, default simulation count.',
+      'Audit log of imports, exports and runs in this browser, with seed, model version and engine fingerprint.',
+      'Case notes field, saved with the case file.'] },
+    { v: '1.0.0', date: '2026-11-11', tag: 'App', items: [
+      'First release: still-water Monte Carlo model of descent, resting position and refloat.',
+      'Verdict, key numbers, descent and refloat charts, gas build-up chart, search guidance.',
+      'Zone table that updates where the body is most likely resting from the days with no surfacing.',
+      'Refloat grid by depth and temperature; evidence, method and limits panels.'] },
+    { v: 'M1.0', date: '2026-10-21', tag: 'Model', items: [
+      'Calibrated in The Find Me Project modeling study (October 2026).',
+      'Buoyancy: 7% of men float at post-mortem lung volume (Donoghue & Minnigerode 1977).',
+      'Final struggle 20–60 s (Pia 1974). Swim failure bounded by Tipton et al. 1999.',
+      'Gas model tuned to a 2–3 day median refloat in warm shallow water, then checked against the ~200 ft depth limit (Reijnen et al. 2018) and cold-lake behavior.'] }
+  ];
+  function fnv(str) { let h = 0x811c9dc5; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(16).padStart(8, '0'); }
+  const engineEl = document.getElementById('srp-engine');
+  const FINGERPRINT = fnv(engineEl ? engineEl.textContent.replace(/\s+/g, ' ').trim() : 'unknown');
+
+  const settings = Object.assign({ analyst: '', theme: 'auto', runs: 3000, logRuns: 'key' }, (() => { try { return JSON.parse(localStorage.getItem('srp-settings') || '{}'); } catch (e) { return {}; } })());
+  function saveSettings() { try { localStorage.setItem('srp-settings', JSON.stringify(settings)); } catch (e) { } }
+  function applyTheme() { const r = document.documentElement; if (settings.theme === 'auto') r.removeAttribute('data-theme'); else r.setAttribute('data-theme', settings.theme); }
+  applyTheme();
+
+  let audit = (() => { try { return JSON.parse(localStorage.getItem('srp-audit') || '[]'); } catch (e) { return []; } })();
+  function logEvent(action, caseName, detail) {
+    audit.unshift({ t: new Date().toISOString(), action, case: caseName || '', detail: detail || '', by: settings.analyst || '', app: APP.version, model: APP.model, fp: FINGERPRINT });
+    if (audit.length > 500) audit.length = 500;
+    try { localStorage.setItem('srp-audit', JSON.stringify(audit)); } catch (e) { }
+    if (!$('settings').hidden) renderAudit();
+  }
+  function runDetail() {
+    if (!last) return '';
+    const r = last.res; return `seed ${last.inp.seed} · ${fmt(r.N)} runs · ${last.inp.restDepthFt} ft @ ${last.inp.restTempF} °F · refloat 1 yr ${pctS(r.pYear)} · bottom ${fmt(pct(r.total, 50), 1)} min`;
+  }
+
+  /* ---------- results snapshot (for verification) ---------- */
+  function snapshot() {
+    const r = last.res, o = last.obsDays, pObs = o > 0 ? r.cdf(o) : 0;
+    const rd = (x, n) => isFinite(x) ? +x.toFixed(n) : null;
+    return {
+      simulations: r.N, sunk: r.sunk,
+      refloatWithin1Year: rd(r.pYear, 4), refloatWithin30Days: rd(r.cdf(30), 4),
+      timeToBottomMin: { median: rd(pct(r.total, 50), 3), p5: rd(pct(r.total, 5), 3), p95: rd(pct(r.total, 95), 3) },
+      refloatDay: r.risers.length ? { p10: rd(pct(r.risers, 10), 2), median: rd(pct(r.risers, 50), 2), p90: rd(pct(r.risers, 90), 2) } : null,
+      daysWithoutSurfacing: rd(o, 2), stillToSurface: o > 0 ? rd(Math.max(0, (r.pYear - pObs) / Math.max(1e-9, 1 - pObs)), 4) : null,
+      searchRadius90Ft: rd(pct(r.offset, 90), 1),
+      zones: (last.zoneRows || []).map(z => ({ label: z.label, likelihoodNow: rd(z.post, 4), refloatWithin1Year: rd(z.pYear, 4) }))
+    };
+  }
+  function caseObject() {
+    return {
+      format: 'srp-case', formatVersion: APP.caseFormat,
+      app: { name: APP.name, version: APP.version, model: APP.model, engineFingerprint: FINGERPRINT },
+      exportedAt: new Date().toISOString(), preparedBy: settings.analyst || '',
+      case: { inputs: last.inp, zones: zones.map(z => ({ label: z.label, depth: z.depth, temp: z.temp, w: z.w })) },
+      results: snapshot()
+    };
+  }
+  const slug = s => (s || 'case').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'case';
+  const stamp = () => new Date().toISOString().slice(0, 10);
+
+  /* ---------- saving files ---------- */
+  async function saveFile(filename, data, mime) {
+    if (window.claude && typeof window.claude.use === 'function') {
+      let d = null; try { d = await window.claude.use('downloads'); } catch (e) { d = null; }
+      if (d) {
+        try { await d.save({ filename, data }); return 'saved'; }
+        catch (e) { const c = e && e.code; if (c === 'declined') return 'declined'; if (c === 'rate_limited') return 'busy'; if (c !== 'unavailable' && c !== 'not_granted' && c !== 'capability_disabled' && c !== 'capability_removed') return 'failed'; }
+      }
+    }
+    try { const url = URL.createObjectURL(new Blob([data], { type: mime })); const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000); return 'started'; }
+    catch (e) { return 'failed'; }
+  }
+  function saveMsg(st, what) {
+    return { saved: `${what} saved`, started: `${what} download started. If nothing saved, use "Copy case file as text".`, declined: 'Save cancelled', busy: 'A save prompt is already open', failed: `Could not save the ${what.toLowerCase()} here. Use "Copy case file as text" instead.` }[st];
+  }
+  async function exportCase() {
+    closeMenu(); if (!last) return;
+    const obj = caseObject(); const name = `${slug(last.inp.caseName)}_${stamp()}.json`;
+    const st = await saveFile(name, JSON.stringify(obj, null, 2), 'application/json');
+    toast(saveMsg(st, 'Case file'));
+    if (st === 'saved' || st === 'started') logEvent('Saved case file', last.inp.caseName, `${name} · ${runDetail()}`);
+  }
+  function copyCase() {
+    closeMenu(); if (!last) return; const txt = JSON.stringify(caseObject());
+    const done = () => { toast('Case file copied as text'); logEvent('Copied case file', last.inp.caseName, runDetail()); };
+    const fallback = () => { const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); done(); } catch (e) { toast('Copy blocked: select the text manually'); } ta.remove(); };
+    try { navigator.clipboard.writeText(txt).then(done, fallback); } catch (e) { fallback(); }
+  }
+
+  /* ---------- field report ---------- */
+  function buildReport() {
+    const obj = caseObject(), inp = last.inp, r = last.res;
+    const h = s => esc(s == null ? '' : s);
+    const scen = { A: 'Unconscious on entry', B: 'Conscious, cannot swim', C: 'Swam until exhausted' }[inp.scenario];
+    const kpis = [...document.querySelectorAll('.kpi')].map(k => `<div class="kpi"><div class="k">${k.querySelector('.k').textContent}</div><div class="v">${k.querySelector('.v').innerHTML}</div><div class="s">${h(k.querySelector('.s').textContent)}</div></div>`).join('');
+    const guide = [...document.querySelectorAll('#guide li')].map(li => `<tr><th>${h(li.children[0].textContent)}</th><td>${h(li.children[1].textContent)}</td></tr>`).join('');
+    const zoneRows = (last.zoneRows || []).map(z => `<tr><td>${h(z.label)}</td><td class="n">${z.depth}</td><td class="n">${z.temp}</td><td class="n">${z.w}</td><td class="n">${z.by == null ? '—' : pctS(z.by)}</td><td class="n">${pctS(z.pYear)}</td><td class="n"><b>${pctS(z.post)}</b></td></tr>`).join('');
+    let heat = '';
+    if (last.heat) { const H = last.heat; let k = 0; heat = `<table class="heat"><tr><th>ft \\ °F</th>${H.t.map(t => `<th>${t}°</th>`).join('')}</tr>` + H.d.map(d => `<tr><th>${d} ft</th>${H.t.map(t => { const p = H.v[k++]; const cur = d === H.curD && t === H.curT; return `<td style="background:rgba(42,109,176,${(0.06 + p * 0.8).toFixed(2)});color:${p > 0.55 ? '#fff' : '#0f2236'}${cur ? ';outline:2px solid #c8901c;outline-offset:-2px;font-weight:700' : ''}">${Math.round(p * 100)}</td>`; }).join('')}</tr>`).join('') + `</table>`; }
+    const charts = ['chDescent', 'chRefloat', 'chGas'].map(id => $(id).innerHTML).join('');
+    const titles = ['Descent profile', 'Refloat probability (cumulative)', 'Gas build-up vs. lift needed'];
+    const chartBlocks = ['chDescent', 'chRefloat', 'chGas'].map((id, i) => `<figure><figcaption>${titles[i]}</figcaption>${$(id).innerHTML}<p class="note">${h($(id.replace('ch', 'n')).textContent)}</p></figure>`).join('');
+    const json = JSON.stringify(obj).replace(/</g, '\\u003c');
+    const rows = [['Case', inp.caseName || '—'], ['Last seen / water entry', inp.incident ? new Date(inp.incident).toLocaleString('en-US') : '—'], ['No body seen through', inp.observed || '—'], ['Subject', `${inp.weightLb} lb, ${inp.heightIn} in, ~${inp.bodyFat}% body fat`], ['Clothing', { swim: 'Swimwear', normal: 'Street clothes', heavy: 'Heavy / winter' }[inp.clothing]], ['Scenario', scen + (inp.scenario === 'C' ? ` (${inp.swimAbility} swimmer)` : '')], ['Water', `${inp.water === 'salt' ? 'Salt' : 'Fresh'}; resting depth ${inp.restDepthFt} ft at ${inp.restTempF} °F; surface ${inp.surfaceTempF} °F; max depth ${inp.maxDepthFt} ft; area ${inp.areaAcres} acres`], ['Model run', `${fmt(r.N)} simulations, seed ${inp.seed}`]];
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Field report: ${h(inp.caseName || 'case')}</title>
+<style>
+:root{--ink:#0f2236;--ink-2:#3e5168;--ink-3:#6b7d92;--line:#d6dee8;--line-2:#e6ecf2;--panel:#fff;--panel-2:#f5f8fb;--water:#2a6db0;--water-soft:#d7e6f5;--gold:#c8901c;--gold-ink:#7a5408;--bad:#b3263a;--good:#1d7a4f;--warn:#a86a07;color-scheme:light}
+body{margin:0;background:#fff;color:var(--ink);font:13px/1.45 system-ui,-apple-system,"Segoe UI",Arial,sans-serif}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 40px}
+header{border-bottom:3px solid var(--gold);padding-bottom:10px;margin-bottom:16px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-size:22px;margin:0;letter-spacing:.02em;text-transform:uppercase}
+h2{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-ink);margin:22px 0 8px;border-bottom:1px solid var(--line);padding-bottom:4px}
+.meta{font:11.5px ui-monospace,Menlo,Consolas,monospace;color:var(--ink-3);text-align:right}
+.verdict{border-left:6px solid ${r.pYear >= 0.7 ? 'var(--good)' : r.pYear >= 0.3 ? 'var(--warn)' : 'var(--bad)'};padding:8px 14px;background:var(--panel-2)}
+.verdict .chip{font-weight:700;font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+.verdict .head{font-size:17px;font-weight:700;margin:4px 0}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));border:1px solid var(--line);margin-top:10px}
+.kpi{padding:8px 10px;border-right:1px solid var(--line-2);border-bottom:1px solid var(--line-2)}
+.kpi .k{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.kpi .v{font:600 18px ui-monospace,Menlo,Consolas,monospace}.kpi .v small{font-size:11px;color:var(--ink-2)}.kpi .s{font-size:11px;color:var(--ink-3)}
+table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:5px 7px;border-bottom:1px solid var(--line-2);vertical-align:top}
+th{font-size:11px;color:var(--ink-2)}td.n{text-align:right;font-family:ui-monospace,Menlo,Consolas,monospace}
+table.kv th{width:190px}
+table.heat td,table.heat th{text-align:center;font:11px ui-monospace,Menlo,Consolas,monospace;padding:4px 2px;border:1px solid #fff}
+figure{margin:12px 0;break-inside:avoid}figcaption{font-weight:700;font-size:12px;margin-bottom:4px}
+svg.chart{width:100%;max-width:620px;height:auto;display:block}svg.chart text{font:11px ui-monospace,Menlo,Consolas,monospace;fill:var(--ink-3)}
+svg.chart .t-strong{fill:var(--ink);font-weight:600}svg.chart .t-water{fill:var(--water);font-weight:600}svg.chart .t-gold{fill:var(--gold-ink);font-weight:600}
+.note{font-size:11.5px;color:var(--ink-3);margin:4px 0 0}
+.notes{white-space:pre-wrap;background:var(--panel-2);border:1px solid var(--line);padding:8px 10px}
+.foot{margin-top:24px;font-size:11px;color:var(--ink-3);border-top:1px solid var(--line);padding-top:10px}
+@media print{.wrap{padding:0}h2{break-after:avoid}}
+</style></head><body><div class="wrap">
+<header><div><h1>Submersion &amp; Refloat Field Report</h1><div>${h(inp.caseName || 'Unnamed case')}</div></div>
+<div class="meta">Prepared ${h(new Date().toLocaleString('en-US'))}${settings.analyst ? '<br>by ' + h(settings.analyst) : ''}<br>Planner ${APP.version} · model ${APP.model}<br>engine ${FINGERPRINT} · seed ${inp.seed}</div></header>
+<section class="verdict"><div class="chip">${h($('vChip').textContent)}</div><div class="head">${h($('vHead').textContent)}</div><div>${h($('vSub').textContent)}</div></section>
+<div class="kpis">${kpis}</div>
+<h2>Search guidance</h2><table class="kv">${guide}</table>
+<h2>Where the body is most likely resting now</h2>${zoneRows ? `<table><tr><th>Zone</th><th>Depth ft</th><th>Temp °F</th><th>Start weight</th><th>Would have surfaced by now</th><th>Refloat in 1 yr</th><th>Likelihood now</th></tr>${zoneRows}</table><p class="note">${h($('zoneSummary').textContent)}</p>` : '<p class="note">No zones entered.</p>'}
+<h2>Charts</h2>${chartBlocks}
+<h2>Refloat within 1 year by depth and temperature (%)</h2>${heat}<p class="note">Outlined cell = current inputs.</p>
+<h2>Case inputs</h2><table class="kv">${rows.map(x => `<tr><th>${h(x[0])}</th><td>${h(x[1])}</td></tr>`).join('')}</table>
+${inp.caseNotes ? `<h2>Notes</h2><div class="notes">${h(inp.caseNotes)}</div>` : ''}
+<h2>Limits</h2><p>Still-water model: currents, river flow, tides and wind drift are not modeled. Water temperature is held constant at the resting depth. Entanglement, injuries, scavenging, intoxication and life jackets are not modeled. Outputs are percentages of simulated bodies, not predictions for an individual. Use as decision support alongside the search plan.</p>
+<p class="foot">Basis: buoyancy (Donoghue &amp; Minnigerode 1977), instinctive drowning response (Pia 1974), drowning timeline (Szpilman et al.), swim failure (Tipton et al. 1999), depth limit (Reijnen et al. 2018), cold-water and adipocere literature; calibrated in The Find Me Project modeling study, October 2026. To reproduce these figures, open this file in the Submersion &amp; Refloat Planner (Case file → Open case file or report). The inputs and the results are embedded below.</p>
+</div><script type="application/json" id="srp-case">${json}<\/script></body></html>`;
+  }
+  async function exportReport() {
+    closeMenu(); if (!last) return;
+    const name = `${slug(last.inp.caseName)}_field-report_${stamp()}.html`;
+    const st = await saveFile(name, buildReport(), 'text/html');
+    toast(saveMsg(st, 'Field report'));
+    if (st === 'saved' || st === 'started') logEvent('Saved field report', last.inp.caseName, `${name} · ${runDetail()}`);
+  }
+
+  /* ---------- opening case files ---------- */
+  function parseCaseText(text) {
+    let t = String(text || '').trim(); if (!t) throw new Error('The file is empty.');
+    if (t[0] === '<') { const doc = new DOMParser().parseFromString(t, 'text/html'); const s = doc.getElementById('srp-case'); if (!s) throw new Error('This HTML file is not a field report from this planner.'); t = s.textContent; }
+    let o; try { o = JSON.parse(t); } catch (e) { throw new Error('The text is not a valid case file (it could not be read as JSON).'); }
+    if (!o || o.format !== 'srp-case' || !o.case || !o.case.inputs) throw new Error('This file is not a Submersion & Refloat case file.');
+    if (o.formatVersion > APP.caseFormat) throw new Error(`This case file was made by a newer version of the planner (format ${o.formatVersion}). Update the planner to open it.`);
+    return o;
+  }
+  function applyCase(o, source) {
+    const i = o.case.inputs;
+    setForm(Object.assign({ caseNotes: '' }, i, { runs: String(i.runs || 3000) }));
+    $('build').value = ['12', '20', '28', '36'].includes(String(i.bodyFat)) ? String(i.bodyFat) : 'custom';
+    zones = (o.case.zones || []).map(z => ({ label: String(z.label || 'Zone'), depth: +z.depth || 10, temp: +z.temp || 60, w: +z.w || 0 }));
+    renderZoneInputs(); $('exampleNote').hidden = true;
+    runAll(() => verifyCase(o, source));
+  }
+  function verifyCase(o, source) {
+    const now = snapshot(), was = o.results || {};
+    const diffs = [];
+    const cmp = (label, a, b, tol) => { if (a == null && b == null) return; if (a == null || b == null || Math.abs(a - b) > tol) diffs.push(`${label}: file ${a == null ? '—' : a}, now ${b == null ? '—' : b}`); };
+    cmp('Refloat within 1 year', was.refloatWithin1Year, now.refloatWithin1Year, 1e-4);
+    cmp('Median time to bottom (min)', was.timeToBottomMin && was.timeToBottomMin.median, now.timeToBottomMin.median, 1e-3);
+    cmp('90% search radius (ft)', was.searchRadius90Ft, now.searchRadius90Ft, 0.1);
+    (was.zones || []).forEach((z, k) => cmp(`Zone "${z.label}" likelihood`, z.likelihoodNow, now.zones[k] && now.zones[k].likelihoodNow, 1e-4));
+    const sameEngine = o.app && o.app.engineFingerprint === FINGERPRINT && o.app.model === APP.model;
+    const who = o.preparedBy ? ` prepared by ${esc(o.preparedBy)}` : '';
+    const when = o.exportedAt ? ` on ${new Date(o.exportedAt).toLocaleString('en-US')}` : '';
+    let kind, msg;
+    if (!o.results) { kind = 'warn'; msg = `<b>Case opened from ${esc(source)}.</b> The file has no saved results to check against, so this is a fresh run.`; }
+    else if (!diffs.length) { kind = 'ok'; msg = `<b>Verified.</b> Case "${esc(o.case.inputs.caseName || 'unnamed')}" from ${esc(source)}${who}${when}. Rerunning the model reproduced the saved results exactly (model ${APP.model}, engine ${FINGERPRINT}).`; }
+    else if (!sameEngine) { kind = 'warn'; msg = `<b>Opened, with model differences.</b> This file was made with planner ${esc(o.app && o.app.version || '?')}, model ${esc(o.app && o.app.model || '?')}, engine ${esc(o.app && o.app.engineFingerprint || '?')}. This planner runs model ${APP.model}, engine ${FINGERPRINT}, so some figures differ: ${esc(diffs.slice(0, 3).join('; '))}. Check the What's new tab in Settings for what changed.`; }
+    else { kind = 'bad'; msg = `<b>Results do not match the file.</b> Same model and engine, but: ${esc(diffs.slice(0, 3).join('; '))}. The file may have been edited by hand. Treat the figures shown here, not the file's, as current.`; }
+    showBanner(kind, msg);
+    logEvent('Opened case file', o.case.inputs.caseName, `${source} · ${kind === 'ok' ? 'verified, results match' : kind === 'warn' ? 'opened; ' + (o.results ? diffs.length + ' differences (model change)' : 'no saved results') : 'MISMATCH: ' + diffs.length + ' differences'} · seed ${o.case.inputs.seed}`);
+  }
+  function openText(text, source) {
+    try { applyCase(parseCaseText(text), source); }
+    catch (e) { showBanner('bad', `<b>Could not open ${esc(source)}.</b> ${esc(e.message)}`); logEvent('Open failed', '', `${source}: ${e.message}`); }
+  }
+  function openFile(file) { if (!file) return; const fr = new FileReader(); fr.onload = () => openText(fr.result, file.name); fr.onerror = () => showBanner('bad', `<b>Could not read ${esc(file.name)}.</b>`); fr.readAsText(file); }
+  function showBanner(kind, html) { const b = $('banner'); b.dataset.kind = kind; $('bannerText').innerHTML = html; b.hidden = false; b.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+
+  /* ---------- menu, drawer, modal ---------- */
+  function closeMenu() { $('caseMenu').open = false; }
+  document.addEventListener('click', e => { if ($('caseMenu').open && !$('caseMenu').contains(e.target)) closeMenu(); });
+  $('mImport').addEventListener('click', () => { closeMenu(); $('importFile').value = ''; $('importFile').click(); });
+  $('importFile').addEventListener('change', e => openFile(e.target.files[0]));
+  $('mPaste').addEventListener('click', () => { closeMenu(); $('pasteText').value = ''; $('pasteModal').hidden = false; $('scrim').hidden = false; $('pasteText').focus(); });
+  const closePaste = () => { $('pasteModal').hidden = true; if ($('settings').hidden) $('scrim').hidden = true; };
+  $('pasteCancel').addEventListener('click', closePaste);
+  $('pasteLoad').addEventListener('click', () => { const t = $('pasteText').value; closePaste(); openText(t, 'pasted text'); });
+  $('mExportCase').addEventListener('click', exportCase);
+  $('mExportReport').addEventListener('click', exportReport);
+  $('mCopyCase').addEventListener('click', copyCase);
+  $('bannerClose').addEventListener('click', () => { $('banner').hidden = true; });
+
+  let dragDepth = 0;
+  window.addEventListener('dragenter', e => { if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) { dragDepth++; $('dropzone').hidden = false; } });
+  window.addEventListener('dragleave', () => { dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) $('dropzone').hidden = true; });
+  window.addEventListener('dragover', e => e.preventDefault());
+  window.addEventListener('drop', e => { e.preventDefault(); dragDepth = 0; $('dropzone').hidden = true; const f = e.dataTransfer && e.dataTransfer.files[0]; if (f) openFile(f); });
+
+  function openSettings(tab) {
+    $('sAnalyst').value = settings.analyst; $('sTheme').value = settings.theme; $('sRuns').value = String(settings.runs); $('sLogRuns').value = settings.logRuns;
+    renderVersions(); renderAudit(); renderAbout(); selectTab(tab || 'general');
+    $('settings').hidden = false; $('scrim').hidden = false; $('setClose').focus();
+  }
+  function closeSettings() { $('settings').hidden = true; $('scrim').hidden = true; $('confirmBox').hidden = true; $('settingsBtn').focus(); }
+  function selectTab(name) {
+    document.querySelectorAll('.tabs [role=tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
+    document.querySelectorAll('.drawer-b [data-pane]').forEach(p => { p.hidden = p.dataset.pane !== name; });
+  }
+  $('settingsBtn').addEventListener('click', () => openSettings());
+  $('setClose').addEventListener('click', closeSettings);
+  $('scrim').addEventListener('click', () => { if (!$('pasteModal').hidden) closePaste(); else closeSettings(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (!$('pasteModal').hidden) closePaste(); else if (!$('settings').hidden) closeSettings(); else closeMenu(); } });
+  document.querySelector('.tabs').addEventListener('click', e => { const t = e.target.closest('[role=tab]'); if (t) selectTab(t.dataset.tab); });
+  $('sAnalyst').addEventListener('change', e => { settings.analyst = e.target.value.trim(); saveSettings(); logEvent('Changed setting', '', `Prepared by: ${settings.analyst || '(blank)'}`); });
+  $('sTheme').addEventListener('change', e => { settings.theme = e.target.value; saveSettings(); applyTheme(); });
+  $('sRuns').addEventListener('change', e => { settings.runs = +e.target.value; saveSettings(); logEvent('Changed setting', '', `Default simulations: ${settings.runs}`); });
+  $('sLogRuns').addEventListener('change', e => { settings.logRuns = e.target.value; saveSettings(); });
+  let pendingClear = null;
+  function askConfirm(text, fn) { pendingClear = fn; $('confirmText').textContent = text; $('confirmBox').hidden = false; $('confirmNo').focus(); }
+  $('sClearCase').addEventListener('click', () => askConfirm('Clear the saved case on this device? The current view stays open until you reload.', () => { try { localStorage.removeItem('srp-inputs'); } catch (e) { } logEvent('Cleared saved case', '', ''); toast('Saved case cleared'); }));
+  $('sClearLog').addEventListener('click', () => askConfirm(`Delete all ${audit.length} audit entries on this device? This cannot be undone. Save the log first if you need it.`, () => { audit = []; try { localStorage.removeItem('srp-audit'); } catch (e) { } logEvent('Cleared audit log', '', 'Previous entries deleted'); toast('Audit log cleared'); }));
+  $('confirmYes').addEventListener('click', () => { $('confirmBox').hidden = true; if (pendingClear) pendingClear(); pendingClear = null; });
+  $('confirmNo').addEventListener('click', () => { $('confirmBox').hidden = true; pendingClear = null; });
+
+  function renderVersions() {
+    $('versions').innerHTML = VERSIONS.map((v, i) => `<li class="${i === 0 || v.v === APP.model ? 'current' : ''}"><div class="vh"><span class="vn">${v.v}</span><span class="vt">${v.tag}</span><span class="vd">${v.date}${i === 0 ? ' · this version' : v.v === APP.model ? ' · model in use' : ''}</span></div><ul>${v.items.map(t => `<li>${esc(t)}</li>`).join('')}</ul></li>`).join('');
+  }
+  function auditCSV() { const q = s => '"' + String(s == null ? '' : s).replace(/"/g, '""') + '"'; return ['time_utc,action,case,details,prepared_by,app_version,model,engine'].concat(audit.map(a => [a.t, a.action, a.case, a.detail, a.by, a.app, a.model, a.fp].map(q).join(','))).join('\n'); }
+  function renderAudit() {
+    $('aCount').textContent = `${audit.length} entr${audit.length === 1 ? 'y' : 'ies'}`;
+    $('auditBody').innerHTML = audit.length ? audit.slice(0, 200).map(a => `<tr><td>${esc(new Date(a.t).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }))}</td><td>${esc(a.action)}</td><td>${esc(a.case || '—')}</td><td>${esc(a.detail)}${a.by ? `<div class="hint">by ${esc(a.by)}</div>` : ''}</td></tr>`).join('') : '<tr><td colspan="4" class="hint">No entries yet. Imports, exports, example loads and manual runs are recorded here.</td></tr>';
+  }
+  $('aSave').addEventListener('click', async () => { const st = await saveFile(`srp-audit-log_${stamp()}.csv`, auditCSV(), 'text/csv'); toast(saveMsg(st, 'Audit log')); });
+  $('aCopy').addEventListener('click', () => { const t = auditCSV(); try { navigator.clipboard.writeText(t).then(() => toast('Audit log copied'), () => toast('Copy blocked in this view')); } catch (e) { toast('Copy blocked in this view'); } });
+  function renderAbout() {
+    const rows = [['Application', `${APP.name} ${APP.version}`], ['Released', APP.released], ['Model', `${APP.model} (calibrated ${APP.modelDate})`], ['Engine fingerprint', `${FINGERPRINT} (changes whenever the model code changes)`], ['Case file format', `srp-case v${APP.caseFormat}`], ['License', 'MIT License. Free to use, modify and share; provided without warranty.'], ['Source code', 'https://github.com/DeLucaEnterprises/Submersion-Refloat-Planner'], ['Data sources', 'None live. All constants are fixed in the model code; all case data is entered by the user.'], ['Network use', 'Only the web font. The planner runs fully offline.'], ['Stored on this device', 'Last case, settings and audit log (this browser only).']];
+    $('about').innerHTML = rows.map(r => `<dt>${esc(r[0])}</dt><dd>${esc(r[1])}</dd>`).join('');
+  }
+  $('vMeta').title = `Planner ${APP.version} · model ${APP.model} · engine ${FINGERPRINT}`;
+
+  if (!restore()) { loadPreset('grant'); } else { renderZoneInputs(); runAll(); }
+})();
+</script>
+
+</body></html>
